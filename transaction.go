@@ -48,8 +48,8 @@ func (t Transaction) ReadLastMintDistribution(group string) (*common.MintDistrib
 }
 
 // MakeOutTransaction make out transaction
-func MakeOutTransaction(t *Transaction, outIndexs []int, outputAddress, outputAccount string, seed []byte) (*common.Transaction, error) {
-	if len(outIndexs) == 0 {
+func MakeOutTransaction(t *Transaction, indexs []int, outputAddress, outputAccount string, seed []byte) (*common.Transaction, error) {
+	if len(indexs) == 0 {
 		return nil, nil
 	}
 
@@ -57,7 +57,7 @@ func MakeOutTransaction(t *Transaction, outIndexs []int, outputAddress, outputAc
 
 	amount := common.NewInteger(0)
 	var script common.Script
-	for _, i := range outIndexs {
+	for _, i := range indexs {
 		if i >= len(t.Outputs) {
 			return nil, errors.New("index exceeds output bounds")
 		}
