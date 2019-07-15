@@ -11,7 +11,7 @@ import (
 
 var httpClient *http.Client
 
-func callRPC(method string, params []interface{}) ([]byte, error) {
+func callRPC(node, method string, params []interface{}) ([]byte, error) {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
@@ -24,7 +24,6 @@ func callRPC(method string, params []interface{}) ([]byte, error) {
 		return nil, err
 	}
 
-	node := randomNode()
 	endpoint := "http://" + node
 	if strings.HasPrefix(node, "http") {
 		endpoint = node

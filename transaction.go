@@ -48,7 +48,7 @@ func (t Transaction) ReadLastMintDistribution(group string) (*common.MintDistrib
 }
 
 // MakeOutTransaction make out transaction
-func MakeOutTransaction(t *Transaction, indexs []int, outputAddress, outputAccount string, seed []byte) (*common.Transaction, error) {
+func MakeOutTransaction(t *Transaction, indexs []int, outputAddress, outputAccount string) (*common.Transaction, error) {
 	if len(indexs) == 0 {
 		return nil, nil
 	}
@@ -75,15 +75,18 @@ func MakeOutTransaction(t *Transaction, indexs []int, outputAddress, outputAccou
 		return nil, err
 	}
 
-	hash := crypto.NewHash(seed)
-	seed = append(hash[:], hash[:]...)
-	tx.AddOutputWithType(0, []common.Address{addr}, script, amount, seed)
+	tx.AddRandomScriptOutput([]common.Address{addr}, script, amount)
 	return tx, nil
 }
 
 // ReadTransaction read transaction
-func ReadTransaction(hash string) (*Transaction, error) {
-	data, err := callRPC("gettransaction", []interface{}{hash})
+func ReadTransaction(hash string, node ...string) (*Transaction, error) {
+	var n = randomNode()
+	if len(node) > 0 && node[0] != "" {
+		n = node[0]
+	}
+
+	data, err := callRPC(n, "gettransaction", []interface{}{hash})
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +98,13 @@ func ReadTransaction(hash string) (*Transaction, error) {
 }
 
 // SendTransaction send transaction
-func SendTransaction(raw string) (crypto.Hash, error) {
-	data, err := callRPC("sendrawtransaction", []interface{}{raw})
+func SendTransaction(raw string, node ...string) (crypto.Hash, error) {
+	var n = randomNode()
+	if len(node) > 0 && node[0] != "" {
+		n = node[0]
+	}
+
+	data, err := callRPC(n, "sendrawtransaction", []interface{}{raw})
 	if err != nil {
 		return crypto.Hash{}, err
 	}
@@ -140,8 +148,7 @@ func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, sto
 			time.Sleep(time.Second)
 			return err
 		})
-
-		out, err := MakeOutTransaction(t, indexs, addr, extra, seed)
+		out, err := MakeOutTransaction(t, indexs, addr, extra)
 		if err != nil {
 			return nil, err
 		}
@@ -163,22 +170,27 @@ func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, sto
 	}
 
 	for {
-		h, err := SendTransaction(rawData)
+		node := randomNode()
+		h, err := SendTransaction(rawData, node)
 		if err != nil {
 			log.Errorln("send transaction", err)
 			time.Sleep(time.Second)
 			continue
 		}
 
-		t, err := ReadTransaction(h.String())
-		if err != nil {
-			log.Errorln("read transaction", err)
-			time.Sleep(time.Second)
-			continue
-		}
+		for i := 0; i < 3; i++ {
+			t, err := ReadTransaction(h.String(), node)
+			if err != nil {
+				log.Errorln("read transaction", err)
+				time.Sleep(time.Second)
+				continue
+			}
 
-		if t.Snapshot.HasValue() {
-			return t, nil
+			if t.Snapshot.HasValue() {
+				return t, nil
+			}
+
+			time.Sleep(time.Second)
 		}
 	}
 }
