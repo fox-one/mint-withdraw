@@ -18,7 +18,7 @@ import (
 type Transaction struct {
 	common.VersionedTransaction
 
-	Snapshot crypto.Hash `json:"snapshot"`
+	Snapshot string      `json:"snapshot"`
 	Hash     crypto.Hash `json:"hash"`
 }
 
@@ -186,7 +186,7 @@ func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, sto
 				continue
 			}
 
-			if t.Snapshot.HasValue() {
+			if _, err := crypto.HashFromString(t.Snapshot); err == nil {
 				return t, nil
 			}
 
