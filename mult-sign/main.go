@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"encoding/hex"
 	"os"
 	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/fox-one/mint-withdraw"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -118,6 +120,57 @@ func main() {
 			k := randomFunc()
 			log.Println("private", k)
 			log.Println("public", k.Public())
+			return nil
+		},
+	})
+
+	app.Commands = append(app.Commands, cli.Command{
+		Name: "address",
+		Flags: []cli.Flag{
+			cli.StringFlag{Name: "view, v"},
+			cli.StringSliceFlag{Name: "spends, s"},
+		},
+		Action: func(c *cli.Context) error {
+			addressFunc := func(spendPub, viewPub crypto.Key) string {
+				const MainNetworkID = "XIN"
+				data := append([]byte(MainNetworkID), spendPub[:]...)
+				data = append(data, viewPub[:]...)
+				checksum := crypto.NewHash(data)
+				data = append(spendPub[:], viewPub[:]...)
+				data = append(data, checksum[:4]...)
+				return MainNetworkID + base58.Encode(data)
+			}
+
+			decodeKey := func(s string) (*crypto.Key, error) {
+				log.Println(s)
+				var k crypto.Key
+
+				b, err := hex.DecodeString(s)
+				if err != nil {
+					return nil, err
+				}
+				copy(k[:], b[:])
+				return &k, nil
+			}
+			viewPub, err := decodeKey(c.String("view"))
+			if err != nil {
+				return err
+			}
+
+			var spendPub *crypto.Key
+			for idx, s := range c.StringSlice("spends") {
+				p, err := decodeKey(s)
+				if err != nil {
+					return err
+				}
+
+				if idx == 0 {
+					spendPub = p
+				} else {
+					spendPub = crypto.KeyAddPub(spendPub, p)
+				}
+			}
+			log.Println("address", addressFunc(*spendPub, *viewPub))
 			return nil
 		},
 	})
