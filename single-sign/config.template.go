@@ -15,4 +15,6 @@ const (
 
 	// transaction hash
 	transaction = ""
+
+	cachePath = "./.cache/"
 )

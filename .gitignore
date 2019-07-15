@@ -16,4 +16,4 @@ single-sign/single-sign*
 mult-sign/mult-sign*
 co-signer/co-signer*
 mult-sign/.cache
-co-signer/.cache
+single-sign/.cache

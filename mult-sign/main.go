@@ -10,6 +10,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/fox-one/mint-withdraw"
+	"github.com/fox-one/mint-withdraw/store"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -25,13 +26,13 @@ func ensureFunc(f func() error) {
 
 type signer struct {
 	key      *Key
-	store    *Store
+	store    *store.Store
 	receiver string
 	extra    string
 }
 
 func newSigner(outputIndex int) (*signer, error) {
-	s, err := newStore(cachePath)
+	s, err := store.NewStore(cachePath)
 	if err != nil {
 		return nil, err
 	}
@@ -69,6 +70,7 @@ func (s signer) mintWithdraw(ctx context.Context) error {
 		return nil
 	}
 
+	log.Debugln("withdraw transaction", ds[0].Transaction)
 	ensureFunc(func() error {
 		err := s.withdrawTransaction(ctx, ds[0].Transaction.String())
 		if err != nil {
@@ -77,7 +79,7 @@ func (s signer) mintWithdraw(ctx context.Context) error {
 		}
 
 		ensureFunc(func() error {
-			err := s.store.writeBatch(batch + 1)
+			err := s.store.WriteBatch(batch + 1)
 			if err != nil {
 				log.Errorln("write batch", err)
 			}
@@ -202,7 +204,7 @@ func main() {
 				return err
 			}
 			if v := c.Uint64("from"); v > 0 {
-				s.store.writeBatch(v)
+				s.store.WriteBatch(v)
 			}
 
 			for {

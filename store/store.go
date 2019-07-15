@@ -1,4 +1,4 @@
-package main
+package store
 
 import (
 	"context"
@@ -17,7 +17,7 @@ type Store struct {
 	batch uint64
 }
 
-func newStore(path string) (*Store, error) {
+func NewStore(path string) (*Store, error) {
 	s := &Store{
 		Path: path,
 	}
@@ -85,7 +85,7 @@ type Batch struct {
 	Batch    uint64    `json:"batch"`
 }
 
-func (s *Store) writeBatch(batch uint64) error {
+func (s *Store) WriteBatch(batch uint64) error {
 	s.batch = batch
 
 	b := Batch{
