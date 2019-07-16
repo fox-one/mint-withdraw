@@ -79,7 +79,7 @@ func (s signer) mintWithdraw(ctx context.Context) error {
 		}
 
 		ensureFunc(func() error {
-			err := s.store.WriteBatch(batch + 1)
+			err := s.store.WriteBatch(ds[0].Batch + 1)
 			if err != nil {
 				log.Errorln("write batch", err)
 			}
