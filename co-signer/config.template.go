@@ -2,6 +2,8 @@
 
 package main
 
+import "github.com/MixinNetwork/mixin/common"
+
 const (
 	Port = 9121
 
@@ -12,4 +14,11 @@ const (
 	SigKey = `-----BEGIN PUBLIC KEY-----
 xxx
 -----END PUBLIC KEY-----`
+)
+
+var (
+	acceptedOutputTypes = map[uint8]bool{
+		common.OutputTypeScript:     true,
+		common.OutputTypeNodePledge: true,
+	}
 )

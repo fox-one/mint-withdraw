@@ -101,6 +101,13 @@ func (imp *serverImp) sign(c *gin.Context) {
 	}
 	gin_helper.BindJson(c, &input)
 
+	for _, output := range input.Transaction.Outputs {
+		if _, found := acceptedOutputTypes[output.Type]; !found {
+			gin_helper.FailError(c, errors.New("output not accepted"))
+			return
+		}
+	}
+
 	var randKey *crypto.Key
 	for _, r := range input.Randoms {
 		random, err := imp.store.ReadProperty(c, fmt.Sprintf("random_%s", r.String()))
