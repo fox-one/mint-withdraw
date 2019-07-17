@@ -2,11 +2,34 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/sha512"
 
 	"github.com/MixinNetwork/mixin/crypto"
 	edm "github.com/MixinNetwork/mixin/crypto/edwards25519"
 	edk "go.dedis.ch/kyber/group/edwards25519"
 )
+
+func challenge(P *crypto.Key, message []byte, Rs ...*crypto.Key) [32]byte {
+	var hramDigest [64]byte
+	var hramDigestReduced [32]byte
+
+	var R *crypto.Key
+	for _, r := range Rs {
+		if R == nil {
+			R = r
+		} else {
+			R = crypto.KeyAddPub(R, r)
+		}
+	}
+
+	h := sha512.New()
+	h.Write(R[:])
+	h.Write(P[:])
+	h.Write(message)
+	h.Sum(hramDigest[:0])
+	edm.ScReduce(&hramDigestReduced, &hramDigest)
+	return hramDigestReduced
+}
 
 func response(hram [32]byte, R, a, b, random *crypto.Key, signerCount int64) [32]byte {
 	var s [32]byte

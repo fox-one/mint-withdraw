@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/fox-one/httpclient"
 	jsoniter "github.com/json-iterator/go"
@@ -73,12 +74,11 @@ func (s CoSigner) RandomKey(ctx context.Context) (*crypto.Key, error) {
 }
 
 // Sign sign
-func (s CoSigner) Sign(ctx context.Context, transaction crypto.Hash, index int, hram [32]byte, random crypto.Key) (*[32]byte, error) {
+func (s CoSigner) Sign(ctx context.Context, transaction common.Transaction, index int, randoms []*crypto.Key) (*[32]byte, error) {
 	data, err := s.client.POST("/sign").
 		P("transaction", transaction).
 		P("index", index).
-		P("hram", hex.EncodeToString(hram[:])).
-		P("random", random.String()).
+		P("randoms", randoms).
 		Auth(s).Do(ctx).Bytes()
 
 	if err != nil {

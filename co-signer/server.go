@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/fox-one/gin-contrib/gin_helper"
 	"github.com/fox-one/mint-withdraw"
@@ -94,45 +95,57 @@ func (imp *serverImp) random(c *gin.Context) {
 
 func (imp *serverImp) sign(c *gin.Context) {
 	var input struct {
-		Transaction crypto.Hash `json:"transaction"`
-		Index       int         `json:"index"`
-		Hram        string      `json:"hram"`
-		Random      string      `json:"random"`
+		Transaction common.Transaction `json:"transaction"`
+		Index       int                `json:"index"`
+		Randoms     []*crypto.Key      `json:"randoms"`
 	}
 	gin_helper.BindJson(c, &input)
 
-	var randKey crypto.Key
-	{
-		random, err := imp.store.ReadProperty(c, fmt.Sprintf("random_%s", input.Random))
+	var randKey *crypto.Key
+	for _, r := range input.Randoms {
+		random, err := imp.store.ReadProperty(c, fmt.Sprintf("random_%s", r.String()))
 		if err != nil {
+			if err == ErrNotFound {
+				continue
+			}
+
 			gin_helper.FailError(c, err)
 			return
 		}
-		bts, _ := hex.DecodeString(random)
-		copy(randKey[:], bts[:])
+
+		if random != "" {
+			bts, _ := hex.DecodeString(random)
+			randKey = &crypto.Key{}
+			copy(randKey[:], bts[:])
+			break
+		}
 	}
 
-	t, err := mint.ReadTransaction(input.Transaction.String())
+	if randKey == nil {
+		gin_helper.FailError(c, errors.New("invalid random"))
+		return
+	}
+
+	if input.Index >= len(input.Transaction.Inputs) {
+		gin_helper.FailError(c, errors.New("index exceeds input bounds"))
+		return
+	}
+
+	inputTran := input.Transaction.Inputs[input.Index]
+	t, err := mint.ReadTransaction(inputTran.Hash.String())
 	if err != nil {
 		gin_helper.FailError(c, err)
 		return
 	}
 
-	if input.Index >= len(t.Outputs) {
+	if inputTran.Index >= len(t.Outputs) {
 		gin_helper.FailError(c, errors.New("index exceeds output bounds"))
 		return
 	}
 
-	mask := t.Outputs[input.Index].Mask
-	var hram [32]byte
-	{
-		bts, err := hex.DecodeString(input.Hram)
-		if err != nil {
-			gin_helper.FailError(c, errors.New("index exceeds output bounds"))
-			return
-		}
-		copy(hram[:], bts[:])
-	}
-	resp := imp.key.Response(hram, &mask, &randKey)
+	utxo := t.Outputs[inputTran.Index]
+	message := common.MsgpackMarshalPanic(input.Transaction)
+	hram := challenge(&utxo.Keys[0], message, input.Randoms...)
+	resp := imp.key.Response(hram, &utxo.Mask, randKey)
 	gin_helper.OK(c, "response", hex.EncodeToString(resp[:]))
 }

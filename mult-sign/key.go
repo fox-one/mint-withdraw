@@ -77,11 +77,10 @@ func (k Key) Sign(out *common.Transaction, t *mint.Transaction) (*common.Version
 		return nil, nil
 	}
 
-	for _, input := range out.Inputs {
+	for idx, input := range out.Inputs {
 		if input.Index >= len(t.Outputs) {
 			return nil, errors.New("index exceeds output bounds")
 		}
-		utxo := t.Outputs[input.Index]
 
 		var sR *crypto.Key
 		var randoms = make([]*crypto.Key, len(k.CoSigners))
@@ -99,12 +98,9 @@ func (k Key) Sign(out *common.Transaction, t *mint.Transaction) (*common.Version
 			}
 		}
 
-		message := common.MsgpackMarshalPanic(signed.Transaction)
-		hram := k.challenge(&utxo.Keys[0], message, randoms...)
-
 		var response *[32]byte
-		for idx, s := range k.CoSigners {
-			resp, err := s.Sign(context.Background(), t.Hash, input.Index, hram, *randoms[idx])
+		for _, s := range k.CoSigners {
+			resp, err := s.Sign(context.Background(), signed.Transaction, idx, randoms)
 			if err != nil {
 				return nil, err
 			}
