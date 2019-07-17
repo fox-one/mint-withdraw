@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"crypto/sha512"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -18,16 +20,26 @@ type Key struct {
 }
 
 // NewKey new key
-func NewKey(outputIndex int, apiBases ...string) *Key {
+func NewKey(outputIndex int, sigKey string, apiBases ...string) (*Key, error) {
+	b, _ := pem.Decode([]byte(sigKey))
+	if b == nil {
+		return nil, errors.New("invalid sig key")
+	}
+
+	pk, err := x509.ParsePKCS1PrivateKey(b.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
 	k := &Key{
 		OutputIndex: outputIndex,
 	}
 
 	k.CoSigners = make([]*CoSigner, len(apiBases))
 	for idx, api := range apiBases {
-		k.CoSigners[idx] = NewCosigner(api)
+		k.CoSigners[idx] = NewCosigner(api, pk)
 	}
-	return k
+	return k, nil
 }
 
 // VerifyOutputs verify ouputs

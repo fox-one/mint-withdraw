@@ -2,23 +2,45 @@ package main
 
 import (
 	"context"
+	cCrypto "crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/fox-one/httpclient"
 	jsoniter "github.com/json-iterator/go"
+	log "github.com/sirupsen/logrus"
 )
 
 // CoSigner co signer
 type CoSigner struct {
 	client *httpclient.Client
+
+	sigKey *rsa.PrivateKey
 }
 
 // NewCosigner new co signer
-func NewCosigner(apiBase string) *CoSigner {
+func NewCosigner(apiBase string, sigKey *rsa.PrivateKey) *CoSigner {
 	return &CoSigner{
 		client: httpclient.NewClient(apiBase),
+		sigKey: sigKey,
+	}
+}
+
+// Auth add auth token
+func (s CoSigner) Auth(req *httpclient.Request, method, uri string, body []byte) {
+	h := sha256.New()
+	h.Write(append([]byte(method+uri), body...))
+	digest := h.Sum(nil)
+
+	bts, err := rsa.SignPKCS1v15(rand.Reader, s.sigKey, cCrypto.SHA256, digest)
+	if err == nil {
+		req.H("Authorization", base64.StdEncoding.EncodeToString(bts))
 	}
 }
 
@@ -31,9 +53,16 @@ func (s CoSigner) RandomKey(ctx context.Context) (*crypto.Key, error) {
 
 	var resp struct {
 		Random crypto.Key `json:"random"`
+
+		Code    int    `json:"code"`
+		Message string `json:"msg"`
 	}
 	if err := jsoniter.Unmarshal(data, &resp); err != nil {
 		return nil, err
+	}
+
+	if resp.Code > 0 {
+		return nil, fmt.Errorf("code: %d; msg: %s", resp.Code, resp.Message)
 	}
 
 	if !resp.Random.HasValue() {
@@ -50,16 +79,25 @@ func (s CoSigner) Sign(ctx context.Context, transaction crypto.Hash, index int, 
 		P("index", index).
 		P("hram", hex.EncodeToString(hram[:])).
 		P("random", random.String()).
-		Do(ctx).Bytes()
+		Auth(s).Do(ctx).Bytes()
+
 	if err != nil {
 		return nil, err
 	}
 
 	var resp struct {
 		Response string `json:"response"`
+
+		Code    int    `json:"code"`
+		Message string `json:"msg"`
 	}
+	log.Println(string(data))
 	if err := jsoniter.Unmarshal(data, &resp); err != nil {
 		return nil, err
+	}
+
+	if resp.Code > 0 {
+		return nil, fmt.Errorf("code: %d; msg: %s", resp.Code, resp.Message)
 	}
 
 	bts, err := hex.DecodeString(resp.Response)

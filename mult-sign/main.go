@@ -37,8 +37,13 @@ func newSigner(outputIndex int) (*signer, error) {
 		return nil, err
 	}
 
+	k, err := NewKey(outputIndex, sigKey, signerAPIBases...)
+	if err != nil {
+		return nil, err
+	}
+
 	return &signer{
-		key:      NewKey(outputIndex, signerAPIBases...),
+		key:      k,
 		store:    s,
 		receiver: receiver,
 		extra:    receiverExtra,
