@@ -106,6 +106,11 @@ func (imp *serverImp) sign(c *gin.Context) {
 			gin_helper.FailError(c, errors.New("output not accepted"))
 			return
 		}
+
+		if output.Amount.Cmp(maxOutputAmount) >= 0 {
+			gin_helper.FailError(c, errors.New("output amount too large"))
+			return
+		}
 	}
 
 	var randKey *crypto.Key

@@ -21,4 +21,6 @@ var (
 		common.OutputTypeScript:     true,
 		common.OutputTypeNodePledge: true,
 	}
+
+	maxOutputAmount = common.NewInteger(100)
 )
