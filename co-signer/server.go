@@ -107,7 +107,7 @@ func (imp *serverImp) sign(c *gin.Context) {
 			return
 		}
 
-		if output.Amount.Cmp(maxOutputAmount) >= 0 {
+		if output.Amount.Cmp(maxOutputAmount) > 0 {
 			gin_helper.FailError(c, errors.New("output amount too large"))
 			return
 		}

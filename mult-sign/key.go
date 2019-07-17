@@ -77,11 +77,7 @@ func (k Key) Sign(out *common.Transaction, t *mint.Transaction) (*common.Version
 		return nil, nil
 	}
 
-	for idx, input := range out.Inputs {
-		if input.Index >= len(t.Outputs) {
-			return nil, errors.New("index exceeds output bounds")
-		}
-
+	for idx := range out.Inputs {
 		var sR *crypto.Key
 		var randoms = make([]*crypto.Key, len(k.CoSigners))
 		for idx, s := range k.CoSigners {

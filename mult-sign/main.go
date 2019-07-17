@@ -3,98 +3,13 @@ package main
 import (
 	"context"
 	"crypto/rand"
-	"encoding/hex"
 	"os"
 	"time"
 
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/btcsuite/btcutil/base58"
-	"github.com/fox-one/mint-withdraw"
-	"github.com/fox-one/mint-withdraw/store"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
-
-func ensureFunc(f func() error) {
-	for {
-		if err := f(); err == nil {
-			return
-		}
-		time.Sleep(time.Second)
-	}
-}
-
-type signer struct {
-	key      *Key
-	store    *store.Store
-	receiver string
-	extra    string
-}
-
-func newSigner(outputIndex int) (*signer, error) {
-	s, err := store.NewStore(cachePath)
-	if err != nil {
-		return nil, err
-	}
-
-	k, err := NewKey(outputIndex, sigKey, signerAPIBases...)
-	if err != nil {
-		return nil, err
-	}
-
-	return &signer{
-		key:      k,
-		store:    s,
-		receiver: receiver,
-		extra:    receiverExtra,
-	}, nil
-}
-
-func (s signer) withdrawTransaction(ctx context.Context, transaction string) error {
-	t, err := mint.ReadTransaction(transaction)
-	if err != nil {
-		return err
-	}
-
-	if _, err := mint.WithdrawTransaction(ctx, t, s.key, s.store, s.receiver, s.extra); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s signer) mintWithdraw(ctx context.Context) error {
-	batch := s.store.Batch()
-
-	ds, err := mint.ListMintDistributions(batch, 1)
-	if err != nil {
-		return err
-	}
-
-	if len(ds) == 0 {
-		return nil
-	}
-
-	log.Debugln("withdraw transaction", ds[0].Transaction)
-	ensureFunc(func() error {
-		err := s.withdrawTransaction(ctx, ds[0].Transaction.String())
-		if err != nil {
-			log.Errorln("withdraw transaction", err)
-			return err
-		}
-
-		ensureFunc(func() error {
-			err := s.store.WriteBatch(ds[0].Batch + 1)
-			if err != nil {
-				log.Errorln("write batch", err)
-			}
-			return err
-		})
-		return nil
-	})
-
-	return nil
-}
 
 func main() {
 	ctx := context.Background()
@@ -137,48 +52,21 @@ func main() {
 			cli.StringFlag{Name: "view, v"},
 			cli.StringSliceFlag{Name: "spends, s"},
 		},
+		Action: encodeAddress,
+	})
+
+	app.Commands = append(app.Commands, cli.Command{
+		Name: "pledge",
+		Flags: []cli.Flag{
+			cli.StringSliceFlag{Name: "transaction, t"},
+			cli.IntFlag{Name: "index, i"},
+		},
 		Action: func(c *cli.Context) error {
-			addressFunc := func(spendPub, viewPub crypto.Key) string {
-				const MainNetworkID = "XIN"
-				data := append([]byte(MainNetworkID), spendPub[:]...)
-				data = append(data, viewPub[:]...)
-				checksum := crypto.NewHash(data)
-				data = append(spendPub[:], viewPub[:]...)
-				data = append(data, checksum[:4]...)
-				return MainNetworkID + base58.Encode(data)
-			}
-
-			decodeKey := func(s string) (*crypto.Key, error) {
-				log.Println(s)
-				var k crypto.Key
-
-				b, err := hex.DecodeString(s)
-				if err != nil {
-					return nil, err
-				}
-				copy(k[:], b[:])
-				return &k, nil
-			}
-			viewPub, err := decodeKey(c.String("view"))
+			s, err := newSigner(cachePath, sigKey, receiver, receiverExtra, c.Int("index"), signerAPIBases...)
 			if err != nil {
 				return err
 			}
-
-			var spendPub *crypto.Key
-			for idx, s := range c.StringSlice("spends") {
-				p, err := decodeKey(s)
-				if err != nil {
-					return err
-				}
-
-				if idx == 0 {
-					spendPub = p
-				} else {
-					spendPub = crypto.KeyAddPub(spendPub, p)
-				}
-			}
-			log.Println("address", addressFunc(*spendPub, *viewPub))
-			return nil
+			return s.pledgeTransaction(ctx, c.StringSlice("transaction"))
 		},
 	})
 
@@ -189,7 +77,7 @@ func main() {
 			cli.IntFlag{Name: "index, i"},
 		},
 		Action: func(c *cli.Context) error {
-			s, err := newSigner(c.Int("index"))
+			s, err := newSigner(cachePath, sigKey, receiver, receiverExtra, c.Int("index"), signerAPIBases...)
 			if err != nil {
 				return err
 			}
@@ -204,7 +92,7 @@ func main() {
 			cli.IntFlag{Name: "index, i"},
 		},
 		Action: func(c *cli.Context) error {
-			s, err := newSigner(c.Int("index"))
+			s, err := newSigner(cachePath, sigKey, receiver, receiverExtra, c.Int("index"), signerAPIBases...)
 			if err != nil {
 				return err
 			}

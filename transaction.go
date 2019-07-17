@@ -117,6 +117,35 @@ func SendTransaction(raw string, node ...string) (crypto.Hash, error) {
 	return resp.Hash, nil
 }
 
+// DoTransaction do transaction
+func DoTransaction(ctx context.Context, rawData string) (*Transaction, error) {
+	for {
+		node := randomNode()
+		h, err := SendTransaction(rawData, node)
+		if err != nil {
+			log.Errorln("send transaction", err)
+			time.Sleep(time.Second)
+			continue
+		}
+
+		log.Info("output transaction hash: ", h)
+		for i := 0; i < 6; i++ {
+			t, err := ReadTransaction(h.String(), node)
+			if err != nil {
+				log.Errorln("read transaction", err)
+				time.Sleep(time.Second)
+				continue
+			}
+
+			if _, err := crypto.HashFromString(t.Snapshot); err == nil {
+				return t, nil
+			}
+
+			time.Sleep(time.Second)
+		}
+	}
+}
+
 // WithdrawTransaction withdraw transaction
 func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, store Store, addr, extra string) (*Transaction, error) {
 	var rawData = ""
@@ -169,29 +198,5 @@ func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, sto
 		})
 	}
 
-	for {
-		node := randomNode()
-		h, err := SendTransaction(rawData, node)
-		if err != nil {
-			log.Errorln("send transaction", err)
-			time.Sleep(time.Second)
-			continue
-		}
-
-		log.Info("output transaction hash: ", h)
-		for i := 0; i < 6; i++ {
-			t, err := ReadTransaction(h.String(), node)
-			if err != nil {
-				log.Errorln("read transaction", err)
-				time.Sleep(time.Second)
-				continue
-			}
-
-			if _, err := crypto.HashFromString(t.Snapshot); err == nil {
-				return t, nil
-			}
-
-			time.Sleep(time.Second)
-		}
-	}
+	return DoTransaction(ctx, rawData)
 }
