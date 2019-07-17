@@ -115,7 +115,6 @@ func main() {
 		Name: "transaction",
 		Flags: []cli.Flag{
 			cli.StringFlag{Name: "transaction, t"},
-			cli.IntFlag{Name: "index, i"},
 		},
 		Action: func(c *cli.Context) error {
 			s, err := newSigner()

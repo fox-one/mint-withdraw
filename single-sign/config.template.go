@@ -13,8 +13,5 @@ const (
 	// ReceiverExtra receiver extra
 	ReceiverExtra = ""
 
-	// transaction hash
-	transaction = ""
-
 	cachePath = "./.cache/"
 )

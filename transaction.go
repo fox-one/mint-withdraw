@@ -178,7 +178,8 @@ func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, sto
 			continue
 		}
 
-		for i := 0; i < 3; i++ {
+		log.Info("output transaction hash", h)
+		for i := 0; i < 6; i++ {
 			t, err := ReadTransaction(h.String(), node)
 			if err != nil {
 				log.Errorln("read transaction", err)
