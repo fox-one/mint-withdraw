@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -123,6 +124,11 @@ func DoTransaction(ctx context.Context, rawData string) (*Transaction, error) {
 		node := randomNode()
 		h, err := SendTransaction(rawData, node)
 		if err != nil {
+			prefix := "ERROR invalid output key "
+			if strings.HasPrefix(err.Error(), prefix) {
+				return nil, nil
+			}
+
 			log.Errorln("send transaction", err)
 			time.Sleep(time.Second)
 			continue

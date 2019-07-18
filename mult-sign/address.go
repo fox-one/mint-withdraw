@@ -48,6 +48,7 @@ func encodeAddress(c *cli.Context) error {
 	view := spendPub.DeterministicHashDerive()
 	viewPub := view.Public()
 
+	log.Println("spend public", spendPub)
 	log.Println("view private", view)
 	log.Println("view public", viewPub)
 	log.Println("address", exportAddress(*spendPub, viewPub))
