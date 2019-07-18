@@ -65,12 +65,18 @@ func (s signer) pledgeTransaction(ctx context.Context, assetID, signerSpendPub, 
 		t.Extra = extra
 	}
 
-	for _, s := range transactions {
-		h, err := crypto.HashFromString(s)
+	for _, h := range transactions {
+		in, err := mint.ReadTransaction(h)
 		if err != nil {
 			return err
 		}
-		t.AddInput(h, 0)
+		os, err := s.key.VerifyOutputs(in)
+		if err != nil {
+			return err
+		}
+		for _, i := range os {
+			t.AddInput(in.Hash, i)
+		}
 	}
 
 	seed := make([]byte, 64)
