@@ -60,14 +60,11 @@ func (k Key) Accounts() []common.Address {
 func (k Key) VerifyOutputs(t *mint.Transaction) ([]int, error) {
 	var outputs = make([]int, 0, len(t.Outputs))
 	for idx, o := range t.Outputs {
-		keysFilter := make(map[string]bool)
-		for _, k := range o.Keys {
-			keysFilter[k.String()] = true
-		}
-
-		priv := crypto.DeriveGhostPrivateKey(&o.Mask, &k.View, &k.Spend, uint64(idx))
-		if keysFilter[priv.Public().String()] {
-			outputs = append(outputs, idx)
+		for _, key := range o.Keys {
+			if crypto.ViewGhostOutputKey(&key, &k.View, &o.Mask, uint64(idx)).String() == k.Spend.Public().String() {
+				outputs = append(outputs, idx)
+				break
+			}
 		}
 	}
 	return outputs, nil

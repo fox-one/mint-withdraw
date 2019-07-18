@@ -15,12 +15,14 @@ import (
 
 // Key key
 type Key struct {
-	OutputIndex int
-	CoSigners   []*CoSigner
+	SpendPub *crypto.Key
+	View     *crypto.Key
+
+	CoSigners []*CoSigner
 }
 
 // NewKey new key
-func NewKey(outputIndex int, sigKey string, apiBases ...string) (*Key, error) {
+func NewKey(spendPub, viewPriv string, sigKey string, apiBases ...string) (*Key, error) {
 	b, _ := pem.Decode([]byte(sigKey))
 	if b == nil {
 		return nil, errors.New("invalid sig key")
@@ -31,8 +33,21 @@ func NewKey(outputIndex int, sigKey string, apiBases ...string) (*Key, error) {
 		return nil, err
 	}
 
-	k := &Key{
-		OutputIndex: outputIndex,
+	k := &Key{}
+
+	k.SpendPub, err = decodeKey(spendPub)
+	if err != nil {
+		return nil, err
+	}
+
+	if viewPriv != "" {
+		k.View, err = decodeKey(viewPriv)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		key := k.SpendPub.DeterministicHashDerive()
+		k.View = &key
 	}
 
 	k.CoSigners = make([]*CoSigner, len(apiBases))
@@ -43,9 +58,17 @@ func NewKey(outputIndex int, sigKey string, apiBases ...string) (*Key, error) {
 }
 
 // VerifyOutputs verify ouputs
-//	TODO
 func (k Key) VerifyOutputs(t *mint.Transaction) ([]int, error) {
-	return []int{k.OutputIndex}, nil
+	var outputs = make([]int, 0, len(t.Outputs))
+	for idx, o := range t.Outputs {
+		for _, key := range o.Keys {
+			if crypto.ViewGhostOutputKey(&key, k.View, &o.Mask, uint64(idx)).String() == k.SpendPub.String() {
+				outputs = append(outputs, idx)
+				break
+			}
+		}
+	}
+	return outputs, nil
 }
 
 func (k Key) challenge(P *crypto.Key, message []byte, Rs ...*crypto.Key) [32]byte {

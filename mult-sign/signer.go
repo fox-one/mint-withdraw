@@ -30,13 +30,13 @@ type signer struct {
 	extra    string
 }
 
-func newSigner(cachePath, sigKey, receiver, receiverExtra string, outputIndex int, signerAPIBases ...string) (*signer, error) {
+func newSigner(cachePath, spendPub, view, sigKey, receiver, receiverExtra string, signerAPIBases ...string) (*signer, error) {
 	s, err := store.NewStore(cachePath)
 	if err != nil {
 		return nil, err
 	}
 
-	k, err := NewKey(outputIndex, sigKey, signerAPIBases...)
+	k, err := NewKey(spendPub, view, sigKey, signerAPIBases...)
 	if err != nil {
 		return nil, err
 	}
