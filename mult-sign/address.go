@@ -31,10 +31,6 @@ func encodeAddress(c *cli.Context) error {
 		copy(k[:], b[:])
 		return &k, nil
 	}
-	viewPub, err := decodeKey(c.String("view"))
-	if err != nil {
-		return err
-	}
 
 	var spendPub *crypto.Key
 	for idx, s := range c.StringSlice("spends") {
@@ -49,6 +45,12 @@ func encodeAddress(c *cli.Context) error {
 			spendPub = crypto.KeyAddPub(spendPub, p)
 		}
 	}
-	log.Println("address", addressFunc(*spendPub, *viewPub))
+
+	view := spendPub.DeterministicHashDerive()
+	viewPub := view.Public()
+
+	log.Println("view private", view)
+	log.Println("view public", viewPub)
+	log.Println("address", addressFunc(*spendPub, viewPub))
 	return nil
 }

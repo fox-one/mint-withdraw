@@ -49,7 +49,6 @@ func main() {
 	app.Commands = append(app.Commands, cli.Command{
 		Name: "address",
 		Flags: []cli.Flag{
-			cli.StringFlag{Name: "view, v"},
 			cli.StringSliceFlag{Name: "spends, s"},
 		},
 		Action: encodeAddress,
