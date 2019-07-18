@@ -58,15 +58,21 @@ func main() {
 	app.Commands = append(app.Commands, cli.Command{
 		Name: "pledge",
 		Flags: []cli.Flag{
+			cli.StringFlag{Name: "asset, a"},
 			cli.StringSliceFlag{Name: "transaction, t"},
 			cli.IntFlag{Name: "index, i"},
+			cli.StringFlag{Name: "signer-spend-pub, ss"},
+			cli.StringFlag{Name: "payee-spend-pub, ps"},
 		},
 		Action: func(c *cli.Context) error {
 			s, err := newSigner(cachePath, sigKey, receiver, receiverExtra, c.Int("index"), signerAPIBases...)
 			if err != nil {
 				return err
 			}
-			return s.pledgeTransaction(ctx, c.StringSlice("transaction"))
+			return s.pledgeTransaction(ctx,
+				c.String("asset"),
+				c.String("signer-spend-pub"), c.String("payee-spend-pub"),
+				c.StringSlice("transaction"))
 		},
 	})
 

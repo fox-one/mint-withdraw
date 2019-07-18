@@ -10,6 +10,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/fox-one/mint-withdraw"
 	"github.com/fox-one/mint-withdraw/store"
+	jsoniter "github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -48,9 +49,21 @@ func newSigner(cachePath, sigKey, receiver, receiverExtra string, outputIndex in
 	}, nil
 }
 
-func (s signer) pledgeTransaction(ctx context.Context, transactions []string) error {
-	asset, _ := crypto.HashFromString("a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc")
+func (s signer) pledgeTransaction(ctx context.Context, assetID, signerSpendPub, payeeSpendPub string, transactions []string) error {
+	asset, err := crypto.HashFromString(assetID)
+	if err != nil {
+		return err
+	}
+
 	t := common.NewTransaction(asset)
+
+	{
+		extra, err := hex.DecodeString(signerSpendPub + payeeSpendPub)
+		if err != nil {
+			return err
+		}
+		t.Extra = extra
+	}
 
 	for _, s := range transactions {
 		h, err := crypto.HashFromString(s)
@@ -61,7 +74,7 @@ func (s signer) pledgeTransaction(ctx context.Context, transactions []string) er
 	}
 
 	seed := make([]byte, 64)
-	_, err := rand.Read(seed)
+	_, err = rand.Read(seed)
 	if err != nil {
 		return err
 	}
@@ -74,7 +87,11 @@ func (s signer) pledgeTransaction(ctx context.Context, transactions []string) er
 	}
 
 	rawData := hex.EncodeToString(signed.Marshal())
-	log.Println(rawData)
+	{
+		bts, _ := jsoniter.Marshal(signed)
+		log.Println(string(bts))
+		log.Println(rawData)
+	}
 
 	out, err := mint.DoTransaction(ctx, rawData)
 	if out != nil {
