@@ -101,16 +101,18 @@ func (imp *serverImp) sign(c *gin.Context) {
 	}
 	gin_helper.BindJson(c, &input)
 
+	outputAmount := common.NewInteger(0)
 	for _, output := range input.Transaction.Outputs {
 		if _, found := acceptedOutputTypes[output.Type]; !found {
 			gin_helper.FailError(c, errors.New("output not accepted"))
 			return
 		}
 
-		if output.Amount.Cmp(maxOutputAmount) > 0 {
-			gin_helper.FailError(c, errors.New("output amount too large"))
-			return
-		}
+		outputAmount = outputAmount.Add(output.Amount)
+	}
+	if outputAmount.Cmp(maxOutputAmount) > 0 {
+		gin_helper.FailError(c, errors.New("output amount too large"))
+		return
 	}
 
 	var randKey *crypto.Key
