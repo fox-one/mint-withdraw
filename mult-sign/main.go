@@ -59,7 +59,6 @@ func main() {
 		Flags: []cli.Flag{
 			cli.StringFlag{Name: "asset, a"},
 			cli.StringSliceFlag{Name: "transaction, t"},
-			cli.IntFlag{Name: "index, i"},
 			cli.StringFlag{Name: "signer-spend-pub, ss"},
 			cli.StringFlag{Name: "payee-spend-pub, ps"},
 		},

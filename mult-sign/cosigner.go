@@ -76,7 +76,7 @@ func (s CoSigner) RandomKey(ctx context.Context) (*crypto.Key, error) {
 // Sign sign
 func (s CoSigner) Sign(ctx context.Context, transaction common.Transaction, index int, randoms []*crypto.Key) (*[32]byte, error) {
 	data, err := s.client.POST("/sign").
-		P("transaction", transaction).
+		P("transaction", hex.EncodeToString(common.MsgpackMarshalPanic(transaction))).
 		P("index", index).
 		P("randoms", randoms).
 		Auth(s).Do(ctx).Bytes()

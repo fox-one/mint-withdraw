@@ -95,14 +95,31 @@ func (imp *serverImp) random(c *gin.Context) {
 
 func (imp *serverImp) sign(c *gin.Context) {
 	var input struct {
-		Transaction common.Transaction `json:"transaction"`
-		Index       int                `json:"index"`
-		Randoms     []*crypto.Key      `json:"randoms"`
+		Transaction string        `json:"transaction"`
+		Index       int           `json:"index"`
+		Randoms     []*crypto.Key `json:"randoms"`
 	}
 	gin_helper.BindJson(c, &input)
 
+	message, err := hex.DecodeString(input.Transaction)
+	if err != nil {
+		gin_helper.FailError(c, err)
+		return
+	}
+
+	var transaction common.Transaction
+	{
+		t, err := common.UnmarshalVersionedTransaction(message)
+		if err != nil {
+			gin_helper.FailError(c, err)
+			return
+		}
+
+		transaction = t.Transaction
+	}
+
 	outputAmount := common.NewInteger(0)
-	for _, output := range input.Transaction.Outputs {
+	for _, output := range transaction.Outputs {
 		if _, found := acceptedOutputTypes[output.Type]; !found {
 			gin_helper.FailError(c, errors.New("output not accepted"))
 			return
@@ -140,12 +157,12 @@ func (imp *serverImp) sign(c *gin.Context) {
 		return
 	}
 
-	if input.Index >= len(input.Transaction.Inputs) {
+	if input.Index >= len(transaction.Inputs) {
 		gin_helper.FailError(c, errors.New("index exceeds input bounds"))
 		return
 	}
 
-	inputTran := input.Transaction.Inputs[input.Index]
+	inputTran := transaction.Inputs[input.Index]
 	t, err := mint.ReadTransaction(inputTran.Hash.String())
 	if err != nil {
 		gin_helper.FailError(c, err)
@@ -158,7 +175,6 @@ func (imp *serverImp) sign(c *gin.Context) {
 	}
 
 	utxo := t.Outputs[inputTran.Index]
-	message := common.MsgpackMarshalPanic(input.Transaction)
 	hram := challenge(&utxo.Keys[0], message, input.Randoms...)
 	resp := imp.key.Response(hram, &utxo.Mask, randKey)
 	gin_helper.OK(c, "response", hex.EncodeToString(resp[:]))
