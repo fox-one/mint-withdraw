@@ -11,6 +11,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	edm "github.com/MixinNetwork/mixin/crypto/edwards25519"
 	"github.com/fox-one/mint-withdraw"
+	log "github.com/sirupsen/logrus"
 )
 
 // Key key
@@ -97,6 +98,7 @@ func (k Key) challenge(P *crypto.Key, message []byte, Rs ...*crypto.Key) [32]byt
 func (k Key) Sign(out *common.Transaction, t *mint.Transaction) (*common.VersionedTransaction, error) {
 	signed := out.AsLatestVersion()
 	if len(signed.Inputs) == 0 {
+		log.Println("sign with no input")
 		return nil, nil
 	}
 

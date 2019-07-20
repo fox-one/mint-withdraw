@@ -65,6 +65,7 @@ func (s signer) pledgeTransaction(ctx context.Context, assetID, signerSpendPub, 
 		t.Extra = extra
 	}
 
+	amount := common.NewInteger(0)
 	for _, h := range transactions {
 		in, err := mint.ReadTransaction(h)
 		if err != nil {
@@ -76,6 +77,7 @@ func (s signer) pledgeTransaction(ctx context.Context, assetID, signerSpendPub, 
 		}
 		for _, i := range os {
 			t.AddInput(in.Hash, i)
+			amount = amount.Add(in.Outputs[i].Amount)
 		}
 	}
 
@@ -85,7 +87,7 @@ func (s signer) pledgeTransaction(ctx context.Context, assetID, signerSpendPub, 
 		return err
 	}
 
-	t.AddOutputWithType(common.OutputTypeNodePledge, nil, common.Script{}, common.NewInteger(10000), seed)
+	t.AddOutputWithType(common.OutputTypeNodePledge, nil, common.Script{}, amount, seed)
 
 	signed, err := s.key.Sign(t, nil)
 	if err != nil {
