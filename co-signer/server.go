@@ -176,6 +176,6 @@ func (imp *serverImp) sign(c *gin.Context) {
 
 	utxo := t.Outputs[inputTran.Index]
 	hram := challenge(&utxo.Keys[0], message, input.Randoms...)
-	resp := imp.key.Response(hram, &utxo.Mask, randKey)
+	resp := imp.key.Response(hram, &utxo.Mask, randKey, uint64(inputTran.Index))
 	gin_helper.OK(c, "response", hex.EncodeToString(resp[:]))
 }

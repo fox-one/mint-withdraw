@@ -31,9 +31,9 @@ func challenge(P *crypto.Key, message []byte, Rs ...*crypto.Key) [32]byte {
 	return hramDigestReduced
 }
 
-func response(hram [32]byte, R, a, b, random *crypto.Key, signerCount int64) [32]byte {
+func response(hram [32]byte, R, a, b, random *crypto.Key, index uint64, signerCount int64) [32]byte {
 	var s [32]byte
-	privateKey := deriveGhostPrivateKey(R, a, b, 0, signerCount)
+	privateKey := deriveGhostPrivateKey(R, a, b, index, signerCount)
 	messageDigestReduced := [32]byte(*random)
 	expandedSecretKey := [32]byte(*privateKey)
 	edm.ScMulAdd(&s, &hram, &expandedSecretKey, &messageDigestReduced)

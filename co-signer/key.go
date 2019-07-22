@@ -48,6 +48,6 @@ func NewKey(view, spend string, signerCount int64) (*Key, error) {
 }
 
 // Response response
-func (k Key) Response(hram [32]byte, mask, random *crypto.Key) [32]byte {
-	return response(hram, mask, &k.View, &k.Spend, random, k.signerCount)
+func (k Key) Response(hram [32]byte, mask, random *crypto.Key, outputIndex uint64) [32]byte {
+	return response(hram, mask, &k.View, &k.Spend, random, outputIndex, k.signerCount)
 }
