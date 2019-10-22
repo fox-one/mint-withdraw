@@ -63,7 +63,7 @@ func main() {
 			cli.StringFlag{Name: "payee-spend-pub, ps"},
 		},
 		Action: func(c *cli.Context) error {
-			s, err := newSigner(cachePath, spendPub, view, sigKey, receiver, receiverExtra, signerAPIBases...)
+			s, err := newSigner(cachePath, spendPub, view, sigKey, receiver, clientID, sessionID, sessionKey, receiverExtra, signerAPIBases...)
 			if err != nil {
 				return err
 			}
@@ -80,7 +80,7 @@ func main() {
 			cli.StringFlag{Name: "transaction, t"},
 		},
 		Action: func(c *cli.Context) error {
-			s, err := newSigner(cachePath, spendPub, view, sigKey, receiver, receiverExtra, signerAPIBases...)
+			s, err := newSigner(cachePath, spendPub, view, sigKey, receiver, clientID, sessionID, sessionKey, receiverExtra, signerAPIBases...)
 			if err != nil {
 				return err
 			}
@@ -94,7 +94,7 @@ func main() {
 			cli.Uint64Flag{Name: "from, f"},
 		},
 		Action: func(c *cli.Context) error {
-			s, err := newSigner(cachePath, spendPub, view, sigKey, receiver, receiverExtra, signerAPIBases...)
+			s, err := newSigner(cachePath, spendPub, view, sigKey, receiver, clientID, sessionID, sessionKey, receiverExtra, signerAPIBases...)
 			if err != nil {
 				return err
 			}

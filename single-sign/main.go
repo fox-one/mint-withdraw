@@ -57,6 +57,10 @@ func newSigner() (*signer, error) {
 		signer.user = u
 	}
 
+	if signer.receiver == "" && (signer.user == nil && signer.walletID == "") {
+		return nil, errors.New("no valid output account")
+	}
+
 	return &signer, nil
 }
 
@@ -72,9 +76,6 @@ func (s signer) withdrawTransaction(ctx context.Context, transaction string) err
 	var keys []crypto.Key
 
 	if receiver == "" {
-		if s.user == nil || s.walletID == "" {
-			return errors.New("no valid output accounts")
-		}
 		output, err := s.user.MakeTransactionOutput(ctx, s.walletID)
 		if err != nil {
 			return err

@@ -16,6 +16,12 @@ xxx
 	cachePath = "./.cache/"
 )
 
+const (
+	clientID   = ""
+	sessionID  = ""
+	sessionKey = ""
+)
+
 var (
 	signerAPIBases = []string{
 		"http://localhost:9121",

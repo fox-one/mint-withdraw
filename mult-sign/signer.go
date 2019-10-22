@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/fox-one/mint-withdraw"
 	"github.com/fox-one/mint-withdraw/store"
+	"github.com/fox-one/mixin-sdk/mixin"
 	jsoniter "github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 )
@@ -27,10 +29,12 @@ type signer struct {
 	key      *Key
 	store    *store.Store
 	receiver string
-	extra    string
+	walletID string
+
+	user *mixin.User
 }
 
-func newSigner(cachePath, spendPub, view, sigKey, receiver, receiverExtra string, signerAPIBases ...string) (*signer, error) {
+func newSigner(cachePath, spendPub, view, sigKey, receiver, clientID, sessionID, sessionKey, receiverExtra string, signerAPIBases ...string) (*signer, error) {
 	s, err := store.NewStore(cachePath)
 	if err != nil {
 		return nil, err
@@ -41,12 +45,26 @@ func newSigner(cachePath, spendPub, view, sigKey, receiver, receiverExtra string
 		return nil, err
 	}
 
-	return &signer{
+	signer := signer{
 		key:      k,
 		store:    s,
 		receiver: receiver,
-		extra:    receiverExtra,
-	}, nil
+		walletID: receiverExtra,
+	}
+
+	if clientID != "" && sessionID != "" && sessionKey != "" {
+		u, err := mixin.NewUser(clientID, sessionID, sessionKey)
+		if err != nil {
+			return nil, err
+		}
+		signer.user = u
+	}
+
+	if signer.receiver == "" && (signer.user == nil && signer.walletID == "") {
+		return nil, errors.New("no valid output account")
+	}
+
+	return &signer, nil
 }
 
 func (s signer) pledgeTransaction(ctx context.Context, assetID, signerSpendPub, payeeSpendPub string, transactions []string) error {
@@ -114,7 +132,28 @@ func (s signer) withdrawTransaction(ctx context.Context, transaction string) err
 		return err
 	}
 
-	if _, err := mint.WithdrawTransaction(ctx, t, s.key, s.store, s.receiver, s.extra); err != nil {
+	var (
+		mask crypto.Key
+		keys []crypto.Key
+	)
+	if s.receiver == "" {
+		output, err := s.user.MakeTransactionOutput(ctx, s.walletID)
+		if err != nil {
+			return err
+		}
+		m, err := decodeKey(output.Mask)
+		if err != nil {
+			return err
+		}
+		key, err := decodeKey(output.Keys[0])
+		if err != nil {
+			return err
+		}
+		mask = *m
+		keys = []crypto.Key{*key}
+	}
+
+	if _, err := mint.WithdrawTransaction(ctx, t, s.key, s.store, s.receiver, mask, keys, s.walletID); err != nil {
 		return err
 	}
 
