@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"time"
 
+	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/fox-one/mint-withdraw"
 	"github.com/fox-one/mint-withdraw/store"
+	"github.com/fox-one/mixin-sdk/mixin"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -24,26 +27,37 @@ type signer struct {
 	key      *Key
 	store    *store.Store
 	receiver string
-	extra    string
+	walletID string
+
+	user *mixin.User
 }
 
 func newSigner() (*signer, error) {
+	signer := signer{
+		receiver: Address,
+		walletID: ReceiverWallet,
+	}
 	s, err := store.NewStore(cachePath)
 	if err != nil {
 		return nil, err
 	}
+	signer.store = s
 
 	k, err := NewKey(View, Spend)
 	if err != nil {
 		return nil, err
 	}
+	signer.key = k
 
-	return &signer{
-		key:      k,
-		store:    s,
-		receiver: Receiver,
-		extra:    ReceiverExtra,
-	}, nil
+	if ClientID != "" && SessionID != "" && SessionKey != "" {
+		u, err := mixin.NewUser(ClientID, SessionID, SessionKey)
+		if err != nil {
+			return nil, err
+		}
+		signer.user = u
+	}
+
+	return &signer, nil
 }
 
 func (s signer) withdrawTransaction(ctx context.Context, transaction string) error {
@@ -52,7 +66,32 @@ func (s signer) withdrawTransaction(ctx context.Context, transaction string) err
 		return err
 	}
 
-	if _, err := mint.WithdrawTransaction(ctx, t, s.key, s.store, s.receiver, s.extra); err != nil {
+	receiver := s.receiver
+	extra := s.walletID
+	var mask crypto.Key
+	var keys []crypto.Key
+
+	if receiver == "" {
+		if s.user == nil || s.walletID == "" {
+			return errors.New("no valid output accounts")
+		}
+		output, err := s.user.MakeTransactionOutput(ctx, s.walletID)
+		if err != nil {
+			return err
+		}
+		m, err := parseKey(output.Mask)
+		if err != nil {
+			return err
+		}
+		key, err := parseKey(output.Keys[0])
+		if err != nil {
+			return err
+		}
+		mask = m
+		keys = []crypto.Key{key}
+	}
+
+	if _, err := mint.WithdrawTransaction(ctx, t, s.key, s.store, receiver, mask, keys, extra); err != nil {
 		return err
 	}
 
@@ -96,7 +135,7 @@ func main() {
 	ctx := context.Background()
 
 	app := cli.NewApp()
-	app.Name = "mult-sign"
+	app.Name = "single-sign"
 	app.Version = "1.0.0"
 
 	app.Flags = []cli.Flag{

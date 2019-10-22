@@ -49,7 +49,7 @@ func (t Transaction) ReadLastMintDistribution(group string) (*common.MintDistrib
 }
 
 // MakeOutTransaction make out transaction
-func MakeOutTransaction(t *Transaction, indexs []int, outputAddress, outputAccount string) (*common.Transaction, error) {
+func MakeOutTransaction(t *Transaction, indexs []int, outputAddress string, mask crypto.Key, keys []crypto.Key, extra string) (*common.Transaction, error) {
 	if len(indexs) == 0 {
 		return nil, nil
 	}
@@ -69,14 +69,26 @@ func MakeOutTransaction(t *Transaction, indexs []int, outputAddress, outputAccou
 		tx.AddInput(t.Hash, i)
 	}
 
-	tx.Extra = []byte(outputAccount)
+	tx.Extra = []byte(extra)
 
-	addr, err := common.NewAddressFromString(outputAddress)
-	if err != nil {
-		return nil, err
+	if len(outputAddress) > 0 {
+		addr, err := common.NewAddressFromString(outputAddress)
+		if err != nil {
+			return nil, err
+		}
+
+		tx.AddRandomScriptOutput([]common.Address{addr}, script, amount)
+	} else {
+		tx.Outputs = []*common.Output{
+			&common.Output{
+				Type:   common.OutputTypeScript,
+				Amount: amount,
+				Keys:   keys,
+				Script: script,
+				Mask:   mask,
+			},
+		}
 	}
-
-	tx.AddRandomScriptOutput([]common.Address{addr}, script, amount)
 	return tx, nil
 }
 
@@ -153,7 +165,7 @@ func DoTransaction(ctx context.Context, rawData string) (*Transaction, error) {
 }
 
 // WithdrawTransaction withdraw transaction
-func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, store Store, addr, extra string) (*Transaction, error) {
+func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, store Store, addr string, mask crypto.Key, keys []crypto.Key, extra string) (*Transaction, error) {
 	var rawData = ""
 
 	storeKey := fmt.Sprintf("transaction_%s", t.Hash.String())
@@ -183,7 +195,7 @@ func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, sto
 			time.Sleep(time.Second)
 			return err
 		})
-		out, err := MakeOutTransaction(t, indexs, addr, extra)
+		out, err := MakeOutTransaction(t, indexs, addr, mask, keys, extra)
 		if err != nil {
 			return nil, err
 		}

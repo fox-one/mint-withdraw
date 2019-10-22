@@ -8,10 +8,21 @@ const (
 	// Spend spend private
 	Spend = ""
 
-	// Receiver receiver address
-	Receiver = ""
-	// ReceiverExtra receiver extra
-	ReceiverExtra = ""
+	// Address address for receiving transaction
+	Address = ""
 
 	cachePath = "./.cache/"
+)
+
+// ClientID mixin wallet
+const (
+	//client id
+	ClientID = ""
+	// ClientID session id
+	SessionID = ""
+	// SessionKey session key
+	SessionKey = ""
+
+	// ReceiverWallet mixin wallet id to receive transaction
+	ReceiverWallet = ""
 )

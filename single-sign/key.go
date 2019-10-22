@@ -14,21 +14,22 @@ type Key struct {
 	View  crypto.Key
 }
 
+func parseKey(s string) (crypto.Key, error) {
+	var k crypto.Key
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		return k, err
+	}
+
+	copy(k[:32], b[:32])
+	return k, nil
+}
+
 // NewKey create key
 func NewKey(view, spend string) (*Key, error) {
-	decodeFunc := func(s string) (crypto.Key, error) {
-		var k crypto.Key
-		b, err := hex.DecodeString(s)
-		if err != nil {
-			return k, err
-		}
-
-		copy(k[:32], b[:32])
-		return k, nil
-	}
 	key := &Key{}
 	{
-		k, err := decodeFunc(view)
+		k, err := parseKey(view)
 		if err != nil {
 			return nil, err
 		}
@@ -36,7 +37,7 @@ func NewKey(view, spend string) (*Key, error) {
 	}
 
 	{
-		k, err := decodeFunc(spend)
+		k, err := parseKey(spend)
 		if err != nil {
 			return nil, err
 		}
