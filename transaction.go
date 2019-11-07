@@ -132,17 +132,28 @@ func SendTransaction(raw string, node ...string) (crypto.Hash, error) {
 
 // DoTransaction do transaction
 func DoTransaction(ctx context.Context, rawData string) (*Transaction, error) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
 	for {
+		select {
+		case <-ctx.Done():
+			return nil, errors.New("do transaction not done")
+
+		case <-ticker.C:
+		}
+
 		node := randomNode()
 		h, err := SendTransaction(rawData, node)
 		if err != nil {
-			prefix := "ERROR invalid output key "
-			if strings.HasPrefix(err.Error(), prefix) {
+			if strings.HasPrefix(err.Error(), "ERROR invalid output key ") {
 				return nil, nil
 			}
 
+			if strings.HasPrefix(err.Error(), "ERROR invalid lock ") {
+				return nil, err
+			}
+
 			log.Errorln("send transaction", err)
-			time.Sleep(time.Second)
 			continue
 		}
 
@@ -151,15 +162,12 @@ func DoTransaction(ctx context.Context, rawData string) (*Transaction, error) {
 			t, err := ReadTransaction(h.String(), node)
 			if err != nil {
 				log.Errorln("read transaction", err)
-				time.Sleep(time.Second)
 				continue
 			}
 
 			if _, err := crypto.HashFromString(t.Snapshot); err == nil {
 				return t, nil
 			}
-
-			time.Sleep(time.Second)
 		}
 	}
 }
