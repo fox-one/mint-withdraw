@@ -28,3 +28,8 @@ var (
 		"35.227.72.6:8239",
 	}
 )
+
+// SetNodes set mixin nodes
+func SetNodes(ns []string) {
+	nodes = ns
+}

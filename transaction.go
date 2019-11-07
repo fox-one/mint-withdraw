@@ -20,7 +20,7 @@ type Transaction struct {
 	common.VersionedTransaction
 
 	Snapshot string      `json:"snapshot"`
-	Hash     crypto.Hash `json:"hash"`
+	Hash     crypto.Hash `json:"hash,omitempty"`
 }
 
 // ReadUTXO read utxo
