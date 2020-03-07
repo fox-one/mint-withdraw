@@ -11,7 +11,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/fox-one/mint-withdraw"
 	"github.com/fox-one/mint-withdraw/store"
-	"github.com/fox-one/mixin-sdk/mixin"
+	"github.com/fox-one/mixin-sdk"
 	jsoniter "github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 )

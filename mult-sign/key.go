@@ -107,6 +107,7 @@ func (k Key) Sign(out *common.Transaction, t *mint.Transaction) (*common.Version
 		var randoms = make([]*crypto.Key, len(k.CoSigners))
 		for idx, s := range k.CoSigners {
 			r, err := s.RandomKey(context.Background())
+			log.Println("random key", s.apiBase, r, err)
 			if err != nil {
 				return nil, err
 			}
@@ -122,6 +123,7 @@ func (k Key) Sign(out *common.Transaction, t *mint.Transaction) (*common.Version
 		var response *[32]byte
 		for _, s := range k.CoSigners {
 			resp, err := s.Sign(context.Background(), signed.Transaction, idx, randoms)
+			log.Println("sign", s.apiBase, resp, err)
 			if err != nil {
 				return nil, err
 			}

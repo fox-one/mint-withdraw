@@ -23,6 +23,36 @@ type Transaction struct {
 	Hash     crypto.Hash `json:"hash,omitempty"`
 }
 
+type UTXO struct {
+	common.Input
+	common.Output
+	Lock crypto.Hash `json:"lock,omitempty"`
+}
+
+// ReadUTXO read utxo
+func ReadUTXO(hash crypto.Hash, index int, node ...string) (*common.UTXOWithLock, error) {
+	var n = randomNode()
+	if len(node) > 0 && node[0] != "" {
+		n = node[0]
+	}
+
+	data, err := callRPC(n, "getutxo", []interface{}{hash, index})
+	if err != nil {
+		return nil, err
+	}
+
+	var o UTXO
+	if err := jsoniter.Unmarshal(data, &o); err != nil {
+		return nil, err
+	}
+	out := &common.UTXOWithLock{
+		LockHash: o.Lock,
+	}
+	out.UTXO.Input = o.Input
+	out.UTXO.Output = o.Output
+	return out, nil
+}
+
 // ReadUTXO read utxo
 func (t Transaction) ReadUTXO(hash crypto.Hash, index int) (*common.UTXOWithLock, error) {
 	if t.Hash.String() != hash.String() {
@@ -106,6 +136,9 @@ func ReadTransaction(hash string, node ...string) (*Transaction, error) {
 	t := Transaction{}
 	if err := jsoniter.Unmarshal(data, &t); err != nil {
 		return nil, err
+	}
+	if !t.Hash.HasValue() {
+		return nil, errors.New("null transaction")
 	}
 	return &t, nil
 }

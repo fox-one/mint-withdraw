@@ -2,17 +2,23 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"os"
 	"time"
 
+	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/fox-one/mint-withdraw"
 	"github.com/fox-one/mint-withdraw/store"
-	"github.com/fox-one/mixin-sdk/mixin"
+	mixin "github.com/fox-one/mixin-sdk"
+	jsoniter "github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
+
+var commands []cli.Command
 
 func ensureFunc(f func() error) {
 	for {
@@ -132,6 +138,70 @@ func (s signer) mintWithdraw(ctx context.Context) error {
 	return nil
 }
 
+func (s signer) pledgeTransaction(ctx context.Context, assetID, signerSpendPub, payeeSpendPub, transaction string, dryRun bool) error {
+	if assetID == "" {
+		assetID = "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc"
+	}
+
+	asset, err := crypto.HashFromString(assetID)
+	if err != nil {
+		return err
+	}
+
+	t := common.NewTransaction(asset)
+	{
+		extra, err := hex.DecodeString(signerSpendPub + payeeSpendPub)
+		if err != nil {
+			return err
+		}
+		t.Extra = extra
+	}
+
+	amount := common.NewInteger(0)
+	in, err := mint.ReadTransaction(transaction)
+	if err != nil {
+		return err
+	}
+	os, err := s.key.VerifyOutputs(in)
+	if err != nil {
+		return err
+	}
+	for _, i := range os {
+		t.AddInput(in.Hash, i)
+		amount = amount.Add(in.Outputs[i].Amount)
+	}
+
+	seed := make([]byte, 64)
+	_, err = rand.Read(seed)
+	if err != nil {
+		return err
+	}
+
+	t.AddOutputWithType(common.OutputTypeNodePledge, nil, common.Script{}, amount, seed)
+
+	log.Println("begin to sign")
+	signed, err := s.key.Sign(t, in)
+	if err != nil {
+		return err
+	}
+
+	log.Println("signed")
+	rawData := hex.EncodeToString(signed.Marshal())
+
+	if dryRun {
+		bts, _ := jsoniter.MarshalIndent(signed, "", "    ")
+		log.Println(string(bts))
+		log.Println(rawData)
+		return nil
+	}
+
+	out, err := mint.DoTransaction(ctx, rawData)
+	if out != nil {
+		log.Println(out.Hash)
+	}
+	return err
+}
+
 func main() {
 	ctx := context.Background()
 
@@ -169,7 +239,6 @@ func main() {
 		Name: "mint",
 		Flags: []cli.Flag{
 			cli.Uint64Flag{Name: "from, f"},
-			cli.IntFlag{Name: "index, i"},
 		},
 		Action: func(c *cli.Context) error {
 			s, err := newSigner()
@@ -194,6 +263,30 @@ func main() {
 		},
 	})
 
+	app.Commands = append(app.Commands, cli.Command{
+		Name: "pledge",
+		Flags: []cli.Flag{
+			cli.StringFlag{Name: "asset, a"},
+			cli.StringFlag{Name: "transaction, t"},
+			cli.StringFlag{Name: "signer-spend-pub, ss"},
+			cli.StringFlag{Name: "payee-spend-pub, ps"},
+			cli.BoolFlag{Name: "dry"},
+		},
+		Action: func(c *cli.Context) error {
+			s, err := newSigner()
+			if err != nil {
+				return err
+			}
+			return s.pledgeTransaction(ctx,
+				c.String("asset"),
+				c.String("signer-spend-pub"),
+				c.String("payee-spend-pub"),
+				c.String("transaction"),
+				c.Bool("dry"))
+		},
+	})
+
+	app.Commands = append(app.Commands, commands...)
 	if err := app.Run(os.Args); err != nil {
 		log.Error(err)
 		os.Exit(1)

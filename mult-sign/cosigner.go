@@ -20,7 +20,8 @@ import (
 
 // CoSigner co signer
 type CoSigner struct {
-	client *httpclient.Client
+	apiBase string
+	client  *httpclient.Client
 
 	sigKey *rsa.PrivateKey
 }
@@ -28,8 +29,9 @@ type CoSigner struct {
 // NewCosigner new co signer
 func NewCosigner(apiBase string, sigKey *rsa.PrivateKey) *CoSigner {
 	return &CoSigner{
-		client: httpclient.NewClient(apiBase),
-		sigKey: sigKey,
+		apiBase: apiBase,
+		client:  httpclient.NewClient(apiBase),
+		sigKey:  sigKey,
 	}
 }
 
