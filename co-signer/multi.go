@@ -4,8 +4,8 @@ import (
 	"crypto/rand"
 	"crypto/sha512"
 
+	edm "filippo.io/edwards25519"
 	"github.com/MixinNetwork/mixin/crypto"
-	edm "github.com/MixinNetwork/mixin/crypto/edwards25519"
 	edk "go.dedis.ch/kyber/group/edwards25519"
 )
 

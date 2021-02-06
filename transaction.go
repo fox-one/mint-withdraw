@@ -133,14 +133,20 @@ func ReadTransaction(hash string, node ...string) (*Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	t := Transaction{}
+	var t struct {
+		Transaction
+		Extra string `json:"extra"`
+	}
 	if err := jsoniter.Unmarshal(data, &t); err != nil {
 		return nil, err
+	}
+	if bts, err := hex.DecodeString(t.Extra); err == nil {
+		t.Transaction.Extra = bts
 	}
 	if !t.Hash.HasValue() {
 		return nil, errors.New("null transaction")
 	}
-	return &t, nil
+	return &t.Transaction, nil
 }
 
 // SendTransaction send transaction

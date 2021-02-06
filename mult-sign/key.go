@@ -7,9 +7,9 @@ import (
 	"encoding/pem"
 	"errors"
 
+	edm "filippo.io/edwards25519"
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
-	edm "github.com/MixinNetwork/mixin/crypto/edwards25519"
 	"github.com/fox-one/mint-withdraw"
 	log "github.com/sirupsen/logrus"
 )
