@@ -255,6 +255,7 @@ func main() {
 		Name: "mint",
 		Flags: []cli.Flag{
 			cli.Uint64Flag{Name: "from, f"},
+			cli.Int64Flag{Name: "duration"},
 		},
 		Action: func(c *cli.Context) error {
 			s, err := newSigner()
@@ -268,7 +269,11 @@ func main() {
 			for {
 				err := s.mintWithdraw(ctx)
 				if err == nil {
-					time.Sleep(time.Minute)
+					dur := time.Minute
+					if v := c.Int64("duration"); v > 0 {
+						dur = time.Duration(v) * time.Second
+					}
+					time.Sleep(dur)
 					continue
 				}
 				log.Errorln("mint withdraw", err)
