@@ -38,7 +38,7 @@ it also generate keystore content(below the "keystore"), save it to `t.json`
 then you can use it to verify the rawaddress:
 
 ```bash
-$ verifier verify -k {Raw Address}
+$ verifier verify -k t.json -raw {Raw Address}
 ```
 
 if it says "verified", then it matched.
