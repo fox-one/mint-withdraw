@@ -159,7 +159,8 @@ func (s signer) pledgeTransaction(ctx context.Context, keystore, signerSpendPub,
 		if err := json.Unmarshal(bts, &keys); err != nil {
 			return err
 		}
-		if keys.Signer == nil || keys.Payee == nil {
+		if keys.Signer == nil || !keys.Signer.HasValue() ||
+			keys.Payee == nil || !keys.Payee.HasValue() {
 			return errors.New("unmarshal keystore failed")
 		}
 		signerSpendPub = keys.Signer.Public().String()
@@ -302,7 +303,6 @@ func main() {
 		Flags: []cli.Flag{
 			cli.StringFlag{Name: "transaction, t", Required: true},
 			cli.BoolFlag{Name: "dry"},
-			cli.StringFlag{Name: "asset, a"},
 			cli.StringFlag{Name: "keystore, k"},
 			cli.StringFlag{Name: "signer-spend-pub, ss"},
 			cli.StringFlag{Name: "payee-spend-pub, ps"},
