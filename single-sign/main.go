@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"time"
 
@@ -139,17 +141,32 @@ func (s signer) mintWithdraw(ctx context.Context) error {
 	return nil
 }
 
-func (s signer) pledgeTransaction(ctx context.Context, assetID, signerSpendPub, payeeSpendPub, transaction string, dryRun bool) error {
-	if assetID == "" {
-		assetID = "a99c2e0e2b1da4d648755ef19bd95139acbbe6564cfb06dec7cd34931ca72cdc"
-	}
-
-	asset, err := crypto.HashFromString(assetID)
+func (s signer) pledgeTransaction(ctx context.Context, keystore, signerSpendPub, payeeSpendPub, transaction string, dryRun bool) error {
+	in, err := mint.ReadTransaction(transaction)
 	if err != nil {
 		return err
 	}
 
-	t := common.NewTransaction(asset)
+	if keystore != "" {
+		bts, err := ioutil.ReadFile(keystore)
+		if err != nil {
+			return err
+		}
+		var keys struct {
+			Signer *crypto.Key `json:"s"`
+			Payee  *crypto.Key `json:"p"`
+		}
+		if err := json.Unmarshal(bts, &keys); err != nil {
+			return err
+		}
+		if keys.Signer == nil || keys.Payee == nil {
+			return errors.New("unmarshal keystore failed")
+		}
+		signerSpendPub = keys.Signer.Public().String()
+		payeeSpendPub = keys.Payee.Public().String()
+	}
+
+	t := common.NewTransaction(in.Asset)
 	{
 		extra, err := hex.DecodeString(signerSpendPub + payeeSpendPub)
 		if err != nil {
@@ -159,10 +176,6 @@ func (s signer) pledgeTransaction(ctx context.Context, assetID, signerSpendPub, 
 	}
 
 	amount := common.NewInteger(0)
-	in, err := mint.ReadTransaction(transaction)
-	if err != nil {
-		return err
-	}
 	os, err := s.key.VerifyOutputs(in)
 	if err != nil {
 		return err
@@ -287,11 +300,12 @@ func main() {
 	app.Commands = append(app.Commands, cli.Command{
 		Name: "pledge",
 		Flags: []cli.Flag{
+			cli.StringFlag{Name: "transaction, t", Required: true},
+			cli.BoolFlag{Name: "dry"},
 			cli.StringFlag{Name: "asset, a"},
-			cli.StringFlag{Name: "transaction, t"},
+			cli.StringFlag{Name: "keystore, k"},
 			cli.StringFlag{Name: "signer-spend-pub, ss"},
 			cli.StringFlag{Name: "payee-spend-pub, ps"},
-			cli.BoolFlag{Name: "dry"},
 		},
 		Action: func(c *cli.Context) error {
 			s, err := newSigner()
@@ -299,7 +313,7 @@ func main() {
 				return err
 			}
 			return s.pledgeTransaction(ctx,
-				c.String("asset"),
+				c.String("keystore"),
 				c.String("signer-spend-pub"),
 				c.String("payee-spend-pub"),
 				c.String("transaction"),
