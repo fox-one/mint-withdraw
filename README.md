@@ -1,7 +1,7 @@
 # mint-withdraw
 mixin node mint withdraw
 
-## generate keys
+## Generate keys and verfiy raw address
 
 use the command to generate keys of signer and payee
 
