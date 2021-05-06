@@ -29,19 +29,21 @@ func parseKey(s string) (crypto.Key, error) {
 func NewKey(view, spend string) (*Key, error) {
 	key := &Key{}
 	{
-		k, err := parseKey(view)
-		if err != nil {
-			return nil, err
-		}
-		key.View = k
-	}
-
-	{
 		k, err := parseKey(spend)
 		if err != nil {
 			return nil, err
 		}
 		key.Spend = k
+	}
+
+	if view != "" {
+		k, err := parseKey(view)
+		if err != nil {
+			return nil, err
+		}
+		key.View = k
+	} else {
+		key.View = key.Spend.Public().DeterministicHashDerive()
 	}
 	return key, nil
 }

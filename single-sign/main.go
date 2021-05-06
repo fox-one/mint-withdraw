@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
@@ -222,6 +223,21 @@ func main() {
 	}
 
 	app.Commands = append(app.Commands, cli.Command{
+		Name: "print",
+		Action: func(c *cli.Context) error {
+			s, err := newSigner()
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Address: %s\nPrivate View: %s\nPublic Spend: %s",
+				s.key.Accounts()[0], s.key.View, s.key.Spend.Public())
+
+			return nil
+		},
+	})
+
+	app.Commands = append(app.Commands, cli.Command{
 		Name: "transaction",
 		Flags: []cli.Flag{
 			cli.StringFlag{Name: "transaction, t"},
@@ -252,7 +268,7 @@ func main() {
 			for {
 				err := s.mintWithdraw(ctx)
 				if err == nil {
-					time.Sleep(time.Minute * 5)
+					time.Sleep(time.Minute)
 					continue
 				}
 				log.Errorln("mint withdraw", err)
