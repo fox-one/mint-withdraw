@@ -76,6 +76,10 @@ func (k Key) VerifyOutputs(t *mint.Transaction) ([]int, error) {
 
 // Sign sign transaction, only for transaction, not for mint/deposit
 func (k Key) Sign(out *common.Transaction, t *mint.Transaction) (*common.VersionedTransaction, error) {
+	return k.AggregateSign(out, t)
+}
+
+func (k Key) SignMap(out *common.Transaction, t *mint.Transaction) (*common.VersionedTransaction, error) {
 	signed := out.AsLatestVersion()
 
 	for i := range signed.Inputs {
