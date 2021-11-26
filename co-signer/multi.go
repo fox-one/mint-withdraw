@@ -6,7 +6,7 @@ import (
 
 	edm "filippo.io/edwards25519"
 	"github.com/MixinNetwork/mixin/crypto"
-	edk "go.dedis.ch/kyber/group/edwards25519"
+	edk "go.dedis.ch/kyber/v3/group/edwards25519"
 )
 
 func challenge(P *crypto.Key, message []byte, Rs ...*crypto.Key) [32]byte {

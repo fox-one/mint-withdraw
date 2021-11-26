@@ -53,8 +53,7 @@ func ReadUTXO(hash crypto.Hash, index int, node ...string) (*common.UTXOWithLock
 	return out, nil
 }
 
-// ReadUTXO read utxo
-func (t Transaction) ReadUTXO(hash crypto.Hash, index int) (*common.UTXOWithLock, error) {
+func (t Transaction) ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKeys, error) {
 	if t.Hash.String() != hash.String() {
 		return nil, errors.New("hash not matched")
 	}
@@ -62,7 +61,7 @@ func (t Transaction) ReadUTXO(hash crypto.Hash, index int) (*common.UTXOWithLock
 		return nil, errors.New("index exceeds output bounds")
 	}
 	o := t.Outputs[index]
-	out := &common.UTXOWithLock{}
+	out := &common.UTXOKeys{}
 	out.Keys = o.Keys
 	out.Mask = o.Mask
 	return out, nil
@@ -79,7 +78,7 @@ func (t Transaction) ReadLastMintDistribution(group string) (*common.MintDistrib
 }
 
 // MakeOutTransaction make out transaction
-func MakeOutTransaction(t *Transaction, indexs []int, outputAddress string, mask crypto.Key, keys []crypto.Key, extra string) (*common.Transaction, error) {
+func MakeOutTransaction(t *Transaction, indexs []int, outputAddress string, mask crypto.Key, keys []*crypto.Key, extra string) (*common.Transaction, error) {
 	if len(indexs) == 0 {
 		return nil, nil
 	}
@@ -107,10 +106,10 @@ func MakeOutTransaction(t *Transaction, indexs []int, outputAddress string, mask
 			return nil, err
 		}
 
-		tx.AddRandomScriptOutput([]common.Address{addr}, script, amount)
+		tx.AddRandomScriptOutput([]*common.Address{&addr}, script, amount)
 	} else {
 		tx.Outputs = []*common.Output{
-			&common.Output{
+			{
 				Type:   common.OutputTypeScript,
 				Amount: amount,
 				Keys:   keys,
@@ -212,7 +211,7 @@ func DoTransaction(ctx context.Context, rawData string) (*Transaction, error) {
 }
 
 // WithdrawTransaction withdraw transaction
-func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, store Store, addr string, mask crypto.Key, keys []crypto.Key, extra string) (*Transaction, error) {
+func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, store Store, addr string, mask crypto.Key, keys []*crypto.Key, extra string) (*Transaction, error) {
 	var rawData = ""
 
 	storeKey := fmt.Sprintf("transaction_%s", t.Hash.String())

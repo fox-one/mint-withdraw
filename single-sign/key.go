@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 
 	"github.com/MixinNetwork/mixin/common"
@@ -49,14 +50,14 @@ func NewKey(view, spend string) (*Key, error) {
 }
 
 // Accounts accounts
-func (k Key) Accounts() []common.Address {
-	addr := common.Address{
+func (k Key) Accounts() []*common.Address {
+	addr := &common.Address{
 		PrivateSpendKey: k.Spend,
 		PrivateViewKey:  k.View,
 		PublicSpendKey:  k.Spend.Public(),
 		PublicViewKey:   k.View.Public(),
 	}
-	return []common.Address{addr}
+	return []*common.Address{addr}
 }
 
 // VerifyOutputs verify ouputs
@@ -64,7 +65,7 @@ func (k Key) VerifyOutputs(t *mint.Transaction) ([]int, error) {
 	var outputs = make([]int, 0, len(t.Outputs))
 	for idx, o := range t.Outputs {
 		for _, key := range o.Keys {
-			if crypto.ViewGhostOutputKey(&key, &k.View, &o.Mask, uint64(idx)).String() == k.Spend.Public().String() {
+			if crypto.ViewGhostOutputKey(key, &k.View, &o.Mask, uint64(idx)).String() == k.Spend.Public().String() {
 				outputs = append(outputs, idx)
 				break
 			}
@@ -82,6 +83,17 @@ func (k Key) Sign(out *common.Transaction, t *mint.Transaction) (*common.Version
 		if err != nil {
 			return nil, err
 		}
+	}
+	return signed, nil
+}
+
+func (k Key) AggregateSign(out *common.Transaction, t *mint.Transaction) (*common.VersionedTransaction, error) {
+	signed := out.AsLatestVersion()
+
+	var seed = make([]byte, 32)
+	rand.Reader.Read(seed)
+	if err := signed.AggregateSign(t, [][]*common.Address{k.Accounts()}, seed); err != nil {
+		return nil, err
 	}
 	return signed, nil
 }

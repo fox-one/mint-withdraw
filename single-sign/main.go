@@ -82,7 +82,7 @@ func (s signer) withdrawTransaction(ctx context.Context, transaction string) err
 	receiver := s.receiver
 	extra := s.walletID
 	var mask crypto.Key
-	var keys []crypto.Key
+	var keys []*crypto.Key
 
 	if receiver == "" {
 		output, err := s.user.MakeTransactionOutput(ctx, s.walletID)
@@ -98,7 +98,7 @@ func (s signer) withdrawTransaction(ctx context.Context, transaction string) err
 			return err
 		}
 		mask = m
-		keys = []crypto.Key{key}
+		keys = []*crypto.Key{&key}
 	}
 
 	if _, err := mint.WithdrawTransaction(ctx, t, s.key, s.store, receiver, mask, keys, extra); err != nil {
