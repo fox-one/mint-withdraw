@@ -44,8 +44,12 @@ func init() {
 			copy(extras[:32], S[:])
 			copy(extras[32:], P[:])
 
-			if bytes.Compare(tx.Extra, extras[:]) != 0 {
-				return fmt.Errorf("expected: %s; got: %s", hex.EncodeToString(extras[:]), hex.EncodeToString(tx.Extra[:]))
+			if !bytes.Equal(tx.Extra, extras[:]) {
+				return fmt.Errorf("extra expected: %s; got: %s", hex.EncodeToString(extras[:]), hex.EncodeToString(tx.Extra[:]))
+			}
+
+			if tx.TransactionType() != common.TransactionTypeNodePledge {
+				return fmt.Errorf("type expected: %d; got: %d", common.TransactionTypeNodePledge, tx.TransactionType())
 			}
 
 			fmt.Println("verified")
