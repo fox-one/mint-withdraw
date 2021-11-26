@@ -31,8 +31,8 @@ func init() {
 				return err
 			}
 
-			var tx common.Transaction
-			if err := common.MsgpackUnmarshal(rawData, &tx); err != nil {
+			tx, err := common.UnmarshalVersionedTransaction(rawData)
+			if err != nil {
 				return err
 			}
 
