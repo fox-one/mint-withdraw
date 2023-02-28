@@ -63,8 +63,8 @@ func init() {
 					return fmt.Errorf("asset expected: %s; got: %s", XIN, tx.Asset.String())
 				}
 
-				if tx.Outputs[0].Amount.Cmp(common.NewIntegerFromString("12710")) != 0 {
-					return fmt.Errorf("amount expected: 12710; got: %s", tx.Outputs[0].Amount.String())
+				if tx.Outputs[0].Amount.Cmp(common.NewIntegerFromString("13439")) != 0 {
+					return fmt.Errorf("amount expected: 13439; got: %s", tx.Outputs[0].Amount.String())
 				}
 
 				payload := tx.PayloadMarshal()
