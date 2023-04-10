@@ -73,7 +73,7 @@ func (s signer) pledgeTransaction(ctx context.Context, assetID, signerSpendPub, 
 		return err
 	}
 
-	t := common.NewTransaction(asset)
+	t := common.NewTransactionV3(asset)
 
 	{
 		extra, err := hex.DecodeString(signerSpendPub + payeeSpendPub)

@@ -80,7 +80,7 @@ func (k Key) Sign(out *common.Transaction, t *mint.Transaction) (*common.Version
 }
 
 func (k Key) SignMap(out *common.Transaction, t *mint.Transaction) (*common.VersionedTransaction, error) {
-	signed := out.AsLatestVersion()
+	signed := out.AsVersioned()
 
 	for i := range signed.Inputs {
 		err := signed.SignInput(t, i, k.Accounts())
@@ -92,7 +92,7 @@ func (k Key) SignMap(out *common.Transaction, t *mint.Transaction) (*common.Vers
 }
 
 func (k Key) AggregateSign(out *common.Transaction, t *mint.Transaction) (*common.VersionedTransaction, error) {
-	signed := out.AsLatestVersion()
+	signed := out.AsVersioned()
 
 	var seed = make([]byte, 32)
 	rand.Reader.Read(seed)

@@ -83,7 +83,7 @@ func MakeOutTransaction(t *Transaction, indexs []int, outputAddress string, mask
 		return nil, nil
 	}
 
-	tx := common.NewTransaction(t.Asset)
+	tx := common.NewTransactionV3(t.Asset)
 
 	amount := common.NewInteger(0)
 	var script common.Script

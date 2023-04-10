@@ -167,7 +167,7 @@ func (s signer) pledgeTransaction(ctx context.Context, keystore, signerSpendPub,
 		payeeSpendPub = keys.Payee.Public().String()
 	}
 
-	t := common.NewTransaction(in.Asset)
+	t := common.NewTransactionV3(in.Asset)
 	{
 		extra, err := hex.DecodeString(signerSpendPub + payeeSpendPub)
 		if err != nil {
@@ -283,7 +283,7 @@ func main() {
 			for {
 				err := s.mintWithdraw(ctx)
 				if err == nil {
-					dur := time.Minute
+					dur := time.Second
 					if v := c.Int64("duration"); v > 0 {
 						dur = time.Duration(v) * time.Second
 					}
