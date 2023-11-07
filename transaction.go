@@ -53,11 +53,11 @@ func ReadUTXO(hash crypto.Hash, index int, node ...string) (*common.UTXOWithLock
 	return out, nil
 }
 
-func (t Transaction) ReadUTXOKeys(hash crypto.Hash, index int) (*common.UTXOKeys, error) {
+func (t Transaction) ReadUTXOKeys(hash crypto.Hash, index uint) (*common.UTXOKeys, error) {
 	if t.Hash.String() != hash.String() {
 		return nil, errors.New("hash not matched")
 	}
-	if index >= len(t.Outputs) {
+	if index >= uint(len(t.Outputs)) {
 		return nil, errors.New("index exceeds output bounds")
 	}
 	o := t.Outputs[index]
@@ -83,7 +83,7 @@ func MakeOutTransaction(t *Transaction, indexs []int, outputAddress string, mask
 		return nil, nil
 	}
 
-	tx := common.NewTransactionV3(t.Asset)
+	tx := common.NewTransactionV5(t.Asset)
 
 	amount := common.NewInteger(0)
 	var script common.Script
@@ -95,7 +95,7 @@ func MakeOutTransaction(t *Transaction, indexs []int, outputAddress string, mask
 		o := t.Outputs[i]
 		script = o.Script
 		amount = amount.Add(o.Amount)
-		tx.AddInput(t.Hash, i)
+		tx.AddInput(t.Hash, uint(i))
 	}
 
 	tx.Extra = []byte(extra)

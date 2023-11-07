@@ -67,7 +67,7 @@ func init() {
 					return fmt.Errorf("amount expected: 13439; got: %s", tx.Outputs[0].Amount.String())
 				}
 
-				payload := tx.PayloadMarshal()
+				payloadHash := tx.PayloadHash()
 
 				var pubKeys []*crypto.Key
 				for inputIndex, in := range tx.Inputs {
@@ -78,7 +78,7 @@ func init() {
 						return fmt.Errorf("input (%s:%d) not found", in.Hash, in.Index)
 					}
 
-					if utxo.LockHash.HasValue() && utxo.LockHash != tx.PayloadHash() {
+					if utxo.LockHash.HasValue() && utxo.LockHash != payloadHash {
 						return fmt.Errorf("input (%s:%d) locked by %s", in.Hash, in.Index, utxo.LockHash.String())
 					}
 
@@ -87,7 +87,7 @@ func init() {
 						verified := 0
 						for keyIndex, key := range utxo.Keys {
 							if sig, ok := signatues[uint16(keyIndex)]; ok {
-								if !key.Verify(payload, *sig) {
+								if !key.Verify(payloadHash, *sig) {
 									return fmt.Errorf("input (%d) signature (%d) verify failed", inputIndex, keyIndex)
 								}
 								verified++
@@ -102,7 +102,7 @@ func init() {
 				}
 
 				if tx.AggregatedSignature != nil {
-					if err := crypto.AggregateVerify(&tx.AggregatedSignature.Signature, pubKeys, tx.AggregatedSignature.Signers, payload); err != nil {
+					if err := crypto.AggregateVerify(&tx.AggregatedSignature.Signature, pubKeys, tx.AggregatedSignature.Signers, payloadHash); err != nil {
 						return fmt.Errorf("aggregate verify failed")
 					}
 				} else if len(tx.SignaturesMap) == 0 {

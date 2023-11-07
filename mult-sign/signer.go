@@ -11,7 +11,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/fox-one/mint-withdraw"
 	"github.com/fox-one/mint-withdraw/store"
-	"github.com/fox-one/mixin-sdk"
+	"github.com/fox-one/mixin-sdk-go"
 	jsoniter "github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 )
@@ -31,7 +31,7 @@ type signer struct {
 	receiver string
 	walletID string
 
-	user *mixin.User
+	user *mixin.Client
 }
 
 func newSigner(cachePath, spendPub, view, sigKey, receiver, clientID, sessionID, sessionKey, receiverExtra string, signerAPIBases ...string) (*signer, error) {
@@ -53,7 +53,11 @@ func newSigner(cachePath, spendPub, view, sigKey, receiver, clientID, sessionID,
 	}
 
 	if clientID != "" && sessionID != "" && sessionKey != "" {
-		u, err := mixin.NewUser(clientID, sessionID, sessionKey)
+		u, err := mixin.NewFromKeystore(&mixin.Keystore{
+			ClientID:   clientID,
+			SessionID:  sessionID,
+			PrivateKey: sessionKey,
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -73,7 +77,7 @@ func (s signer) pledgeTransaction(ctx context.Context, assetID, signerSpendPub, 
 		return err
 	}
 
-	t := common.NewTransactionV3(asset)
+	t := common.NewTransactionV5(asset)
 
 	{
 		extra, err := hex.DecodeString(signerSpendPub + payeeSpendPub)
@@ -137,15 +141,15 @@ func (s signer) withdrawTransaction(ctx context.Context, transaction string) err
 		keys []crypto.Key
 	)
 	if s.receiver == "" {
-		output, err := s.user.MakeTransactionOutput(ctx, s.walletID)
+		output, err := s.user.ReadGhostKeys(ctx, []string{s.walletID}, 0)
 		if err != nil {
 			return err
 		}
-		m, err := decodeKey(output.Mask)
+		m, err := decodeKey(output.Mask.String())
 		if err != nil {
 			return err
 		}
-		key, err := decodeKey(output.Keys[0])
+		key, err := decodeKey(output.Keys[0].String())
 		if err != nil {
 			return err
 		}

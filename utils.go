@@ -1,9 +1,8 @@
 package mint
 
 import (
+	"math/rand"
 	"time"
-
-	"github.com/fox-one/mixin-sdk/utils"
 )
 
 func ensureFunc(f func() error) {
@@ -16,5 +15,9 @@ func ensureFunc(f func() error) {
 }
 
 func randomNode() string {
-	return nodes[utils.RandInt(0, len(nodes))]
+	return nodes[RandInt(0, len(nodes))]
+}
+
+func RandInt(min int, max int) int {
+	return min + rand.Intn(max-min)
 }

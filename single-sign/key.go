@@ -65,6 +65,7 @@ func (k Key) VerifyOutputs(t *mint.Transaction) ([]int, error) {
 	var outputs = make([]int, 0, len(t.Outputs))
 	for idx, o := range t.Outputs {
 		for _, key := range o.Keys {
+			// if mixin.ViewGhostOutputKey((*mixin.Key)(key), (*mixin.Key)(&k.View), (*mixin.Key)(&o.Mask), idx).String() == k.Spend.Public().String() {
 			if crypto.ViewGhostOutputKey(key, &k.View, &o.Mask, uint64(idx)).String() == k.Spend.Public().String() {
 				outputs = append(outputs, idx)
 				break

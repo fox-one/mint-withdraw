@@ -15,7 +15,7 @@ import (
 	"github.com/MixinNetwork/mixin/crypto"
 	"github.com/fox-one/mint-withdraw"
 	"github.com/fox-one/mint-withdraw/store"
-	mixin "github.com/fox-one/mixin-sdk"
+	"github.com/fox-one/mixin-sdk-go"
 	jsoniter "github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -38,7 +38,7 @@ type signer struct {
 	receiver string
 	walletID string
 
-	user *mixin.User
+	user *mixin.Client
 }
 
 func newSigner() (*signer, error) {
@@ -46,11 +46,6 @@ func newSigner() (*signer, error) {
 		receiver: Address,
 		walletID: ReceiverWallet,
 	}
-	s, err := store.NewStore(cachePath)
-	if err != nil {
-		return nil, err
-	}
-	signer.store = s
 
 	k, err := NewKey(View, Spend)
 	if err != nil {
@@ -58,8 +53,34 @@ func newSigner() (*signer, error) {
 	}
 	signer.key = k
 
+	fmt.Println("address", signer.key.Accounts()[0].String())
+	if signer.receiver == "" && signer.walletID == "" {
+		signer.receiver = signer.key.Accounts()[0].String()
+	}
+
+	dirPath := fmt.Sprintf(".cache_%v/", signer.key.Accounts()[0].String())
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		// Directory does not exist, so create it
+		err := os.MkdirAll(dirPath, os.ModePerm)
+		if err != nil {
+			fmt.Println("Error creating directory:", err)
+			return nil, err
+		}
+		fmt.Println("Directory created successfully")
+	}
+
+	s, err := store.NewStore(dirPath)
+	if err != nil {
+		return nil, err
+	}
+	signer.store = s
+
 	if ClientID != "" && SessionID != "" && SessionKey != "" {
-		u, err := mixin.NewUser(ClientID, SessionID, SessionKey)
+		u, err := mixin.NewFromKeystore(&mixin.Keystore{
+			ClientID:   ClientID,
+			SessionID:  SessionID,
+			PrivateKey: SessionKey,
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -85,15 +106,15 @@ func (s signer) withdrawTransaction(ctx context.Context, transaction string) err
 	var keys []*crypto.Key
 
 	if receiver == "" {
-		output, err := s.user.MakeTransactionOutput(ctx, s.walletID)
+		output, err := s.user.ReadGhostKeys(ctx, []string{s.walletID}, 0)
 		if err != nil {
 			return err
 		}
-		m, err := parseKey(output.Mask)
+		m, err := parseKey(output.Mask.String())
 		if err != nil {
 			return err
 		}
-		key, err := parseKey(output.Keys[0])
+		key, err := parseKey(output.Keys[0].String())
 		if err != nil {
 			return err
 		}
@@ -167,7 +188,7 @@ func (s signer) pledgeTransaction(ctx context.Context, keystore, signerSpendPub,
 		payeeSpendPub = keys.Payee.Public().String()
 	}
 
-	t := common.NewTransactionV3(in.Asset)
+	t := common.NewTransactionV5(in.Asset)
 	{
 		extra, err := hex.DecodeString(signerSpendPub + payeeSpendPub)
 		if err != nil {
@@ -177,12 +198,12 @@ func (s signer) pledgeTransaction(ctx context.Context, keystore, signerSpendPub,
 	}
 
 	amount := common.NewInteger(0)
-	os, err := s.key.VerifyOutputs(in)
+	utxos, err := s.key.VerifyOutputs(in)
 	if err != nil {
 		return err
 	}
-	for _, i := range os {
-		t.AddInput(in.Hash, i)
+	for _, i := range utxos {
+		t.AddInput(in.Hash, uint(i))
 		amount = amount.Add(in.Outputs[i].Amount)
 	}
 

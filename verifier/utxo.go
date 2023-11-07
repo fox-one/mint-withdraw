@@ -15,7 +15,7 @@ type (
 	}
 )
 
-func ReadUTXOLock(hash crypto.Hash, index int) (*UTXOWithLock, error) {
+func ReadUTXOLock(hash crypto.Hash, index uint) (*UTXOWithLock, error) {
 	var utxo UTXOWithLock
 	err := mixin.CallMixinNetRPC(context.Background(), &utxo, "getutxo", hash, index)
 	return &utxo, err
