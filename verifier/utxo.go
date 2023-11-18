@@ -17,6 +17,8 @@ type (
 
 func ReadUTXOLock(hash crypto.Hash, index uint) (*UTXOWithLock, error) {
 	var utxo UTXOWithLock
-	err := mixin.CallMixinNetRPC(context.Background(), &utxo, "getutxo", hash, index)
+	ctx := context.Background()
+	ctx = mixin.WithMixinNetHost(ctx, "http://mixin-node-box-1.b.watch:8239")
+	err := mixin.CallMixinNetRPC(ctx, &utxo, "getutxo", hash, index)
 	return &utxo, err
 }
