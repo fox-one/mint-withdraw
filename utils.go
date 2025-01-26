@@ -14,7 +14,7 @@ func ensureFunc(f func() error) {
 	}
 }
 
-func randomNode() string {
+func RandomNode() string {
 	return nodes[RandInt(0, len(nodes))]
 }
 

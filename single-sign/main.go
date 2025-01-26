@@ -7,15 +7,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
+	"github.com/MixinNetwork/mixin/rpc"
 	"github.com/fox-one/mint-withdraw"
 	"github.com/fox-one/mint-withdraw/store"
-	"github.com/fox-one/mixin-sdk-go"
+	"github.com/fox-one/mixin-sdk-go/v2"
+	"github.com/fox-one/pkg/uuid"
 	jsoniter "github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -97,6 +98,7 @@ func newSigner() (*signer, error) {
 func (s signer) withdrawTransaction(ctx context.Context, transaction string) error {
 	t, err := mint.ReadTransaction(transaction)
 	if err != nil {
+		fmt.Println("read transaction", err)
 		return err
 	}
 
@@ -106,15 +108,68 @@ func (s signer) withdrawTransaction(ctx context.Context, transaction string) err
 	var keys []*crypto.Key
 
 	if receiver == "" {
-		output, err := s.user.ReadGhostKeys(ctx, []string{s.walletID}, 0)
+		ghosts, err := s.user.SafeCreateGhostKeys(ctx, []*mixin.GhostInput{
+			{
+				Receivers: []string{s.walletID},
+				Index:     0,
+				Hint:      uuid.New(),
+			},
+		})
+		if err != nil {
+			fmt.Println("safe create ghost keys", err)
+			return err
+		}
+
+		m, err := parseKey(ghosts[0].Mask.String())
+		if err != nil {
+			fmt.Println("parse mask", err)
+			return err
+		}
+		key, err := parseKey(ghosts[0].Keys[0].String())
+		if err != nil {
+			fmt.Println("parse key", err)
+			return err
+		}
+		mask = m
+		keys = []*crypto.Key{&key}
+	}
+
+	if _, err := mint.WithdrawTransaction(ctx, t, s.key, s.store, receiver, mask, keys, extra); err != nil {
+		fmt.Println("withdraw transaction", err)
+		return err
+	}
+
+	return nil
+}
+
+func (s signer) withdrawMintTransaction(ctx context.Context, transaction string) error {
+	t, err := mint.ReadTransaction(transaction)
+	if err != nil {
+		return err
+	}
+
+	receiver := s.receiver
+	extra := s.walletID
+	var mask crypto.Key
+	var keys []*crypto.Key
+
+	if receiver == "" {
+		ghosts, err := s.user.SafeCreateGhostKeys(ctx, []*mixin.GhostInput{
+			{
+				Receivers: []string{s.walletID},
+				Index:     0,
+				Hint:      uuid.New(),
+			},
+		})
 		if err != nil {
 			return err
 		}
-		m, err := parseKey(output.Mask.String())
+
+		m, err := parseKey(ghosts[0].Mask.String())
 		if err != nil {
 			return err
 		}
-		key, err := parseKey(output.Keys[0].String())
+		key, err := parseKey(ghosts[0].Keys[0].String())
 		if err != nil {
 			return err
 		}
@@ -126,7 +181,16 @@ func (s signer) withdrawTransaction(ctx context.Context, transaction string) err
 		return err
 	}
 
-	return nil
+	utxo, err := mint.ReadUTXO(t.Hash, len(t.Outputs)-2)
+	if err != nil {
+		return err
+	}
+
+	if !utxo.LockHash.HasValue() {
+		return fmt.Errorf("safe utxo (%v) not dispatched", utxo.LockHash)
+	}
+
+	return s.withdrawTransaction(ctx, utxo.LockHash.String())
 }
 
 func (s signer) mintWithdraw(ctx context.Context) error {
@@ -137,13 +201,14 @@ func (s signer) mintWithdraw(ctx context.Context) error {
 		return err
 	}
 
+	log.Infoln("mint batch", batch, len(ds))
 	if len(ds) == 0 {
 		return nil
 	}
 
 	log.Debugln("withdraw transaction", ds[0].Transaction)
 	ensureFunc(func() error {
-		err := s.withdrawTransaction(ctx, ds[0].Transaction.String())
+		err := s.withdrawMintTransaction(ctx, ds[0].Transaction.String())
 		if err != nil {
 			log.Errorln("withdraw transaction", err)
 			return err
@@ -169,7 +234,7 @@ func (s signer) pledgeTransaction(ctx context.Context, keystore, signerSpendPub,
 	}
 
 	if keystore != "" {
-		bts, err := ioutil.ReadFile(keystore)
+		bts, err := os.ReadFile(keystore)
 		if err != nil {
 			return err
 		}
@@ -214,6 +279,18 @@ func (s signer) pledgeTransaction(ctx context.Context, keystore, signerSpendPub,
 	}
 
 	t.AddOutputWithType(common.OutputTypeNodePledge, nil, common.Script{}, amount, seed)
+	{
+		node := mint.RandomNode()
+		info, err := rpc.GetInfo(node)
+		if err != nil {
+			return err
+		}
+		snap, err := rpc.GetSnapshot(node, info.Consensus.String())
+		if err != nil {
+			return err
+		}
+		t.References = []crypto.Hash{snap.SoleTransaction()}
+	}
 
 	log.Println("begin to sign")
 	signed, err := s.key.Sign(t, in)
@@ -312,10 +389,8 @@ func main() {
 					continue
 				}
 				log.Errorln("mint withdraw", err)
-				time.Sleep(time.Minute)
+				time.Sleep(time.Second)
 			}
-
-			return nil
 		},
 	})
 

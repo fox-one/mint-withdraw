@@ -7,7 +7,7 @@ import (
 
 // ListMintDistributions list mint distributions
 func ListMintDistributions(since, count uint64, node ...string) ([]common.MintDistribution, error) {
-	var n = randomNode()
+	var n = RandomNode()
 	if len(node) > 0 && node[0] != "" {
 		n = node[0]
 	}

@@ -31,7 +31,7 @@ type UTXO struct {
 
 // ReadUTXO read utxo
 func ReadUTXO(hash crypto.Hash, index int, node ...string) (*common.UTXOWithLock, error) {
-	var n = randomNode()
+	var n = RandomNode()
 	if len(node) > 0 && node[0] != "" {
 		n = node[0]
 	}
@@ -123,7 +123,7 @@ func MakeOutTransaction(t *Transaction, indexs []int, outputAddress string, mask
 
 // ReadTransaction read transaction
 func ReadTransaction(hash string, node ...string) (*Transaction, error) {
-	var n = randomNode()
+	var n = RandomNode()
 	if len(node) > 0 && node[0] != "" {
 		n = node[0]
 	}
@@ -150,7 +150,7 @@ func ReadTransaction(hash string, node ...string) (*Transaction, error) {
 
 // SendTransaction send transaction
 func SendTransaction(raw string, node ...string) (crypto.Hash, error) {
-	var n = randomNode()
+	var n = RandomNode()
 	if len(node) > 0 && node[0] != "" {
 		n = node[0]
 	}
@@ -180,7 +180,7 @@ func DoTransaction(ctx context.Context, rawData string) (*Transaction, error) {
 		case <-ticker.C:
 		}
 
-		node := randomNode()
+		node := RandomNode()
 		h, err := SendTransaction(rawData, node)
 		if err != nil {
 			if strings.HasPrefix(err.Error(), "ERROR invalid output key ") {
@@ -243,11 +243,13 @@ func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, sto
 		})
 		out, err := MakeOutTransaction(t, indexs, addr, mask, keys, extra)
 		if err != nil {
+			log.WithError(err).Errorln("make out transaction")
 			return nil, err
 		}
 
 		signed, err := signer.Sign(out, t)
 		if err != nil {
+			log.WithError(err).Errorln("sign transaction")
 			return nil, err
 		}
 		rawData = hex.EncodeToString(signed.Marshal())

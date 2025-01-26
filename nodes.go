@@ -16,7 +16,7 @@ var (
 		"mixin-node-box-4.b.watch:8239",
 	}
 
-	nodes = freshNodes
+	nodes = []string{"https://kernel.mixin.dev:443"}
 )
 
 // SetNodes set mixin nodes

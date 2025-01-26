@@ -5,7 +5,7 @@ import (
 
 	"github.com/MixinNetwork/mixin/common"
 	"github.com/MixinNetwork/mixin/crypto"
-	"github.com/fox-one/mixin-sdk-go"
+	"github.com/fox-one/mixin-sdk-go/v2/mixinnet"
 )
 
 type (
@@ -18,7 +18,6 @@ type (
 func ReadUTXOLock(hash crypto.Hash, index uint) (*UTXOWithLock, error) {
 	var utxo UTXOWithLock
 	ctx := context.Background()
-	ctx = mixin.WithMixinNetHost(ctx, "http://mixin-node-box-1.b.watch:8239")
-	err := mixin.CallMixinNetRPC(ctx, &utxo, "getutxo", hash, index)
+	err := mixinnet.NewClient(mixinnet.DefaultSafeConfig).CallMixinNetRPC(ctx, &utxo, "getutxo", hash, index)
 	return &utxo, err
 }
