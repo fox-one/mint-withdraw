@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,6 +54,48 @@ func ReadUTXO(hash crypto.Hash, index int, node ...string) (*common.UTXOWithLock
 	return out, nil
 }
 
+type lockedUTXOCache struct {
+	LockHash crypto.Hash `json:"lock_hash"`
+}
+
+type withdrawTransactionCache map[string]string
+
+type failedWithdrawTransaction struct {
+	Outputs  string    `json:"outputs"`
+	Raw      string    `json:"raw"`
+	Error    string    `json:"error"`
+	FailedAt time.Time `json:"failed_at"`
+}
+
+const aggregateVerifyError = "AggregateVerify signature verify failed"
+
+// ReadUTXOLockWithCache caches only non-empty locks because unlocked outputs must be checked live.
+func ReadUTXOLockWithCache(ctx context.Context, store Store, hash crypto.Hash, index int, node ...string) (crypto.Hash, error) {
+	storeKey := lockedUTXOStoreKey(hash, index)
+	if store != nil {
+		if cached, err := store.ReadProperty(ctx, storeKey); err == nil && strings.TrimSpace(cached) != "" {
+			var cachedUTXO lockedUTXOCache
+			if err := jsoniter.Unmarshal([]byte(cached), &cachedUTXO); err == nil && cachedUTXO.LockHash.HasValue() {
+				return cachedUTXO.LockHash, nil
+			}
+		}
+	}
+
+	utxo, err := ReadUTXO(hash, index, node...)
+	if err != nil {
+		return crypto.Hash{}, err
+	}
+	if store != nil && utxo.LockHash.HasValue() {
+		cachedUTXO := lockedUTXOCache{LockHash: utxo.LockHash}
+		if bts, err := jsoniter.Marshal(cachedUTXO); err == nil {
+			if err := store.WriteProperty(ctx, storeKey, string(bts)); err != nil {
+				log.WithError(err).Warnln("cache locked utxo", hash.String(), index)
+			}
+		}
+	}
+	return utxo.LockHash, nil
+}
+
 func (t Transaction) ReadUTXOKeys(hash crypto.Hash, index uint) (*common.UTXOKeys, error) {
 	if t.Hash.String() != hash.String() {
 		return nil, errors.New("hash not matched")
@@ -78,7 +121,7 @@ func (t Transaction) ReadLastMintDistribution(group string) (*common.MintDistrib
 }
 
 // MakeOutTransaction make out transaction
-func MakeOutTransaction(t *Transaction, indexs []int, outputAddress string, mask crypto.Key, keys []*crypto.Key, extra string) (*common.Transaction, error) {
+func MakeOutTransaction(t *Transaction, indexs []int, mask crypto.Key, keys []*crypto.Key, extra string) (*common.Transaction, error) {
 	if len(indexs) == 0 {
 		return nil, nil
 	}
@@ -99,24 +142,14 @@ func MakeOutTransaction(t *Transaction, indexs []int, outputAddress string, mask
 	}
 
 	tx.Extra = []byte(extra)
-
-	if len(outputAddress) > 0 {
-		addr, err := common.NewAddressFromString(outputAddress)
-		if err != nil {
-			return nil, err
-		}
-
-		tx.AddRandomScriptOutput([]*common.Address{&addr}, script, amount)
-	} else {
-		tx.Outputs = []*common.Output{
-			{
-				Type:   common.OutputTypeScript,
-				Amount: amount,
-				Keys:   keys,
-				Script: script,
-				Mask:   mask,
-			},
-		}
+	tx.Outputs = []*common.Output{
+		{
+			Type:   common.OutputTypeScript,
+			Amount: amount,
+			Keys:   keys,
+			Script: script,
+			Mask:   mask,
+		},
 	}
 	return tx, nil
 }
@@ -191,7 +224,11 @@ func DoTransaction(ctx context.Context, rawData string) (*Transaction, error) {
 				return nil, err
 			}
 
-			log.Errorln("send transaction", err)
+			if strings.Contains(err.Error(), aggregateVerifyError) {
+				return nil, err
+			}
+
+			log.Errorln("send transaction", err, rawData)
 			continue
 		}
 
@@ -211,26 +248,37 @@ func DoTransaction(ctx context.Context, rawData string) (*Transaction, error) {
 }
 
 // WithdrawTransaction withdraw transaction
-func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, store Store, addr string, mask crypto.Key, keys []*crypto.Key, extra string) (*Transaction, error) {
+func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, store Store, mask crypto.Key, keys []*crypto.Key, extra string) (*Transaction, error) {
 	var rawData = ""
 
-	storeKey := fmt.Sprintf("transaction_%s", t.Hash.String())
+	log.Infoln("try withdraw", "signer: ", signer.Accounts(), "tx: ", t.Hash.String())
+	indexs, err := signer.VerifyOutputs(ctx, store, t)
+	if err != nil || len(indexs) == 0 {
+		return nil, err
+	}
+
+	storeKey := transactionStoreKey(t.Hash)
+	outputsKey := transactionOutputsKey(indexs)
+	cachedTransactions := withdrawTransactionCache{}
 	ensureFunc(func() error {
 		v, e := store.ReadProperty(ctx, storeKey)
-		if e == nil {
-			rawData = v
+		if e != nil {
+			log.Errorln("read property", storeKey, e)
+			return e
+		}
+		if strings.TrimSpace(v) == "" {
 			return nil
 		}
-		log.Errorln("read property", storeKey, e)
-		return e
+		if err := jsoniter.Unmarshal([]byte(v), &cachedTransactions); err != nil {
+			log.WithError(err).Warnln("read transaction cache", storeKey)
+			cachedTransactions = withdrawTransactionCache{}
+			return nil
+		}
+		rawData = cachedTransactions[outputsKey]
+		return nil
 	})
 
 	if rawData == "" {
-		indexs, err := signer.VerifyOutputs(t)
-		if err != nil || len(indexs) == 0 {
-			return nil, err
-		}
-
 		var seed = make([]byte, 64)
 		ensureFunc(func() error {
 			_, err := rand.Read(seed)
@@ -241,7 +289,7 @@ func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, sto
 			time.Sleep(time.Second)
 			return err
 		})
-		out, err := MakeOutTransaction(t, indexs, addr, mask, keys, extra)
+		out, err := MakeOutTransaction(t, indexs, mask, keys, extra)
 		if err != nil {
 			log.WithError(err).Errorln("make out transaction")
 			return nil, err
@@ -254,8 +302,14 @@ func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, sto
 		}
 		rawData = hex.EncodeToString(signed.Marshal())
 
+		cachedTransactions[outputsKey] = rawData
 		ensureFunc(func() error {
-			e := store.WriteProperty(ctx, storeKey, rawData)
+			bts, err := jsoniter.Marshal(cachedTransactions)
+			if err != nil {
+				log.Errorln("marshal transaction cache", storeKey, err)
+				return err
+			}
+			e := store.WriteProperty(ctx, storeKey, string(bts))
 			if e == nil {
 				return nil
 			}
@@ -264,5 +318,91 @@ func WithdrawTransaction(ctx context.Context, t *Transaction, signer Signer, sto
 		})
 	}
 
-	return DoTransaction(ctx, rawData)
+	tx, err := DoTransaction(ctx, rawData)
+	if err != nil {
+		if strings.Contains(err.Error(), aggregateVerifyError) {
+			txErr := err
+			log.Errorln(err)
+			ensureFunc(func() error {
+				if err := moveFailedWithdrawTransaction(ctx, store, t.Hash, outputsKey, rawData, cachedTransactions, txErr); err != nil {
+					log.WithError(err).Errorln("move failed transaction cache", storeKey)
+					return err
+				}
+				return nil
+			})
+		}
+	}
+
+	return tx, err
+}
+
+func transactionStoreKey(hash crypto.Hash) string {
+	return fmt.Sprintf("transaction_%s", hash.String())
+}
+
+func failedTransactionStoreKey(hash crypto.Hash) string {
+	return fmt.Sprintf("transaction_failed_%s", hash.String())
+}
+
+func transactionOutputsKey(indexs []int) string {
+	parts := make([]string, 0, len(indexs))
+	for _, index := range indexs {
+		parts = append(parts, strconv.Itoa(index))
+	}
+	return strings.Join(parts, "_")
+}
+
+func lockedUTXOStoreKey(hash crypto.Hash, index int) string {
+	return fmt.Sprintf("utxo_lock_%s_%d", hash.String(), index)
+}
+
+func moveFailedWithdrawTransaction(ctx context.Context, store Store, hash crypto.Hash, outputsKey, rawData string, cache withdrawTransactionCache, cause error) error {
+	if store == nil || rawData == "" {
+		return nil
+	}
+
+	if err := appendFailedWithdrawTransaction(ctx, store, hash, outputsKey, rawData, cause); err != nil {
+		return err
+	}
+
+	delete(cache, outputsKey)
+	bts, err := jsoniter.Marshal(cache)
+	if err != nil {
+		return err
+	}
+	return store.WriteProperty(ctx, transactionStoreKey(hash), string(bts))
+}
+
+func appendFailedWithdrawTransaction(ctx context.Context, store Store, hash crypto.Hash, outputsKey, rawData string, cause error) error {
+	storeKey := failedTransactionStoreKey(hash)
+	var failures []failedWithdrawTransaction
+	if cached, err := store.ReadProperty(ctx, storeKey); err != nil {
+		return err
+	} else if strings.TrimSpace(cached) != "" {
+		if err := jsoniter.Unmarshal([]byte(cached), &failures); err != nil {
+			return err
+		}
+	}
+
+	causeText := ""
+	if cause != nil {
+		causeText = cause.Error()
+	}
+	for _, failure := range failures {
+		if failure.Outputs == outputsKey && failure.Raw == rawData && failure.Error == causeText {
+			return nil
+		}
+	}
+
+	failures = append(failures, failedWithdrawTransaction{
+		Outputs:  outputsKey,
+		Raw:      rawData,
+		Error:    causeText,
+		FailedAt: time.Now(),
+	})
+	bts, err := jsoniter.Marshal(failures)
+	if err != nil {
+		return err
+	}
+	return store.WriteProperty(ctx, storeKey, string(bts))
 }

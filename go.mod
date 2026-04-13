@@ -10,6 +10,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/urfave/cli v1.22.14
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

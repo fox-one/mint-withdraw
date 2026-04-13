@@ -1,0 +1,16 @@
+# Copy this file to config.yaml and pass --config config.yaml, or pass the same
+# raw YAML/JSON with --stdin.
+
+# Private spend keys. Required. This can be the only field when the other values
+# are injected at build time or provided by environment variables. Use
+# --spend-index N to select one key by 1-based index; by default all keys are used.
+spends:
+  - ""
+
+# Mixin wallet/client credentials. Required for creating ghost keys.
+client_id: ""
+session_id: ""
+session_key: ""
+
+# Wallet id to receive withdrawn outputs. Optional; when empty, client_id is used.
+wallet_id: ""
